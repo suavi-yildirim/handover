@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Handover</title>
+  <style>
+    :root { --ink: #1d2730; --panel: rgba(255, 255, 255, 0.86); --accent: #ff3366; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #dfe6ea; color: var(--ink);
+      font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    .panel { position: fixed; background: var(--panel); border-radius: 10px; padding: 10px 14px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); backdrop-filter: blur(6px); }
+    #title { top: 16px; left: 16px; }
+    #title h1 { margin: 0; font-size: 18px; }
+    #title p { margin: 2px 0 0; opacity: 0.7; }
+    #help { top: 16px; right: 16px; display: grid; gap: 4px; font-size: 13px; }
+    #help div { display: flex; gap: 10px; align-items: center; }
+    kbd { min-width: 64px; display: inline-block; text-align: center; padding: 1px 6px; border-radius: 5px;
+      background: #fff; border: 1px solid #c9d1d6; font: 12px ui-monospace, Menlo, monospace; }
+    #status { bottom: 16px; left: 16px; right: 16px; font: 12px ui-monospace, Menlo, monospace; }
+    #loading { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    @media (max-width: 700px) { #help { display: none; } }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="title" class="panel"><h1>Handover</h1><p>Kitchen · teach the robot to care</p></div>
+  <div id="help" class="panel"></div>
+  <div id="status" class="panel">Loading…</div>
+  <div id="loading" class="panel">Loading physics and robot model…</div>
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

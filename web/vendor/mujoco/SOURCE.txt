@@ -1,0 +1,1 @@
+MuJoCo WebAssembly bindings, npm @mujoco/mujoco 3.16.0 (https://github.com/google-deepmind/mujoco/tree/main/wasm), Apache-2.0.
