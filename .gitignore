@@ -3,6 +3,7 @@ node_modules/
 __pycache__/
 *.pyc
 .certs/
+.phone_logs/
 # training pipeline outputs
 training/data/
 training/outputs/

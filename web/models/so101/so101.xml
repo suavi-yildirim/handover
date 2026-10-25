@@ -20,11 +20,13 @@
       <default class="collision">
         <geom group="3" condim="3"/>
       </default>
+      <!-- Handover: jaw friction 0.4 (bare 3D-printed PLA on ceramic or plastic) instead of 1.
+           With grip tape on the real jaws, raise it to about 0.9. -->
       <default class="collision_gripper">
-        <geom group="3" condim="6" friction="1 5e-3 5e-4" solref="0.01 1" priority="1" rgba="1.0 0 0 1.0" mass="0"/>
+        <geom group="3" condim="6" friction="0.4 5e-3 5e-4" solref="0.01 1" priority="1" rgba="1.0 0 0 1.0" mass="0"/>
       </default>
       <default class="collision_gripper_mesh">
-        <geom group="4" condim="6" friction="1 5e-3 5e-4" solref="0.01 1" priority="1" rgba="1.0 0 0 1.0" mass="0"/>
+        <geom group="4" condim="6" friction="0.4 5e-3 5e-4" solref="0.01 1" priority="1" rgba="1.0 0 0 1.0" mass="0"/>
       </default>
     </default>
 
@@ -35,6 +37,9 @@
            Lerobot. These position gains and forces were calculated according to
            https://github.com/Gregory119/RBE501-RL-arm-project/blob/main/gymnasium_env/README.md,
            assuming that the servo proportional gain is set to 16. -->
+      <!-- Handover: 2.94 N.m is the stall torque of the 12 V STS3215 (1/345 gear, 30 kg.cm),
+           the servos on Suavi's arm. Stall torque is the peak, so the sim is never stronger.
+           For a 7.4 V arm use 1.91 N.m. See docs/kitchen_realism.md. -->
       <position kp="998.22" kv="2.731" forcerange="-2.94 2.94"/>
     </default>
 
@@ -257,6 +262,8 @@
     <position class="sts3215" name="elbow_flex" joint="elbow_flex" ctrlrange="-1.69 1.69"/>
     <position class="sts3215" name="wrist_flex" joint="wrist_flex" ctrlrange="-1.65806 1.65806"/>
     <position class="sts3215" name="wrist_roll" joint="wrist_roll" ctrlrange="-2.74385 2.84121"/>
-    <position class="sts3215" name="gripper" joint="gripper" ctrlrange="-0.17453 1.74533"/>
+    <!-- Handover: LeRobot's SO-101 follower caps the gripper servo at 50% torque
+         (Max_Torque_Limit 500) so it can hold an object without overheating. -->
+    <position class="sts3215" name="gripper" joint="gripper" ctrlrange="-0.17453 1.74533" forcerange="-1.47 1.47"/>
   </actuator>
 </mujoco>

@@ -22,6 +22,9 @@ const DEFAULTS = {
   pitchRate: 1.2,    // rad/s cap, matches the keyboard
   rollRate: 2.0,     // rad/s cap, matches the keyboard
   wristGain: 6,      // 1/s, how hard the wrist servos toward the phone's tilt
+  // The phone reports clockwise roll (as the player sees it) as positive; on the
+  // game's camera a positive teleop rollRate turns the gripper counter-clockwise.
+  rollSign: -1,
   aimSpeed: 0.3,     // m/s cap when moving the phone itself (motion mode)
   aimGain: 8,        // 1/s, how hard the gripper servos toward where the phone says
   staleMs: 250,      // no message for this long -> stop moving (phone locked, Wi-Fi hiccup)
@@ -121,7 +124,7 @@ export class PhoneInput {
       m.roll += rr * dt;
       rollRate += rr;
     }
-    return { v, pitchRate, rollRate };
+    return { v, pitchRate, rollRate: o.rollSign * rollRate };
   }
 
   // Tell the phone the grip state (e.g. after Space on the keyboard) so its button matches.

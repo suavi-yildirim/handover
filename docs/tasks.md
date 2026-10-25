@@ -4,6 +4,14 @@ Every task defines success as predicates on simulator state, plus quality metric
 up the score. Design rule: **game score = data-quality score**. Code: `web/src/task.js`.
 Keep this file and the code in sync.
 
+## Rules shared by every task
+
+- **Leave other things alone.** The episode **fails** if any loose object that isn't part
+  of the task (cup, medicine bottle, glasses case) tips more than 60° from vertical or falls
+  off the table, for example when a carried object swings into it.
+- **Bumps** count each new contact between the robot and anything other than the task
+  object, and each new contact between the task object and another loose object.
+
 ## Task 1: Put the cup on the tray (kitchen)
 
 The player picks up the blue cup and sets it down upright on the green tray.
@@ -29,7 +37,7 @@ Score = 100 × Σ weight × metric. Each metric is between 0 and 1.
 |---|---|---|---|
 | Speed | 0.15 | 1 up to 20 s, falling linearly to 0 at 90 s | Efficient demos, less idle time |
 | Smooth motion | 0.20 | exp(−RMS jerk / 60 m/s³) of the grasp point, sampled every 40 ms of sim time | Smooth trajectories are easier to learn and safe on real hardware |
-| No bumps | 0.25 | 1 − 0.2 × number of new robot contacts with anything other than the cup | Care robots must never bump people or objects |
+| No bumps | 0.25 | 1 − 0.2 × number of bumps (see shared rules) | Care robots must never bump people or objects |
 | Kept level | 0.25 | 1 up to 10° max tilt while the cup is carried, falling linearly to 0 at 45° | Proxy for spilling |
 | No drops | 0.15 | 1 − 0.5 × number of times the cup was let go while more than 3 cm up and unsupported | Drops and regrasps are low-quality demos |
 
@@ -123,7 +131,8 @@ letting the IK fold the arm into a different pose.
 
 ## Episode tags and events
 
-Each recorded episode also carries `contributor_id` (random, per browser), `inputs`,
+Each recorded episode also carries `license` (`CC-BY-4.0`: recorded play data is released
+under CC BY 4.0, attribution "Suavi Yildirim and the Handover contributors"), `contributor_id` (random, per browser), `inputs`,
 `game_version`, `mujoco_version`, `scene_seed` (null until scenes are randomized), and an
 `events` list of `{t, type}` with type `grasp`, `release`, `drop`, `success`, or `fail`.
 

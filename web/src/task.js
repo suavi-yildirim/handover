@@ -6,6 +6,8 @@ const UPRIGHT_COS = Math.cos((15 * Math.PI) / 180);
 const TIPPED_COS = Math.cos((60 * Math.PI) / 180);
 const DROP_HEIGHT = 0.03;         // object released with its origin this high counts as a drop
 const SAMPLE_DT = 0.04;           // s between motion samples for smoothness
+// What players call the other loose objects in failure messages.
+const PROP_NAMES = { cup: 'the cup', pill_bottle: 'the medicine bottle', glasses_case: 'the glasses case' };
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const deg = (rad) => (rad * 180) / Math.PI;
@@ -23,10 +25,19 @@ class Task {
     const fixedJaw = sim.id('BODY', 'gripper');
     const movingJaw = sim.id('BODY', 'moving_jaw_so101_v1');
     // Geom roles, decided once from the body tree.
-    this.role = new Int8Array(model.ngeom); // 0 other, 1 robot, 2 task object, 3 fixed jaw, 4 moving jaw
+    // 0 other (furniture), 1 robot, 2 task object, 3 fixed jaw, 4 moving jaw, 5 other loose object
+    this.role = new Int8Array(model.ngeom);
+    // Loose objects other than the task's own: knocking one over fails the episode.
+    this.props = [];
+    for (let b = 1; b < model.nbody; b++) {
+      const j = model.body_jntadr[b];
+      if (b !== this.obj && j >= 0 && model.jnt_type[j] === 0) this.props.push(b); // 0 = free joint
+    }
+    this.propNames = new Map(Object.entries(PROP_NAMES).map(([n, label]) => [sim.id('BODY', n), label]));
     for (let g = 0; g < model.ngeom; g++) {
       const b = model.geom_bodyid[g];
       if (b === this.obj) this.role[g] = 2;
+      else if (this.props.includes(b)) this.role[g] = 5;
       else if (b === fixedJaw) this.role[g] = 3;
       else if (b === movingJaw) this.role[g] = 4;
       else if (model.body_rootid[b] === base) this.role[g] = 1;
@@ -61,8 +72,10 @@ class Task {
         const other = a === 2 ? b : a;
         if (other === 3) fixed = true;
         else if (other === 4) moving = true;
-        else if (other === 0) supported = true;
-      } else if ((a === 0 && b !== 0) || (b === 0 && a !== 0)) {
+        else if (other === 0 || other === 5) supported = true; // furniture, or another object
+        // The task object hitting another loose object (e.g. swung into it while carried): a bump.
+        if (other === 5) now.add(c.geom1 < c.geom2 ? `${c.geom1}:${c.geom2}` : `${c.geom2}:${c.geom1}`);
+      } else if ((a === 0 || a === 5) !== (b === 0 || b === 5)) {
         // Robot touching furniture or another object (not the task object): a bump.
         now.add(c.geom1 < c.geom2 ? `${c.geom1}:${c.geom2}` : `${c.geom2}:${c.geom1}`);
       }
@@ -96,11 +109,22 @@ class Task {
     const last = this.samples[this.samples.length - 1];
     if (!last || this.sim.time - last[0] >= SAMPLE_DT) this.samples.push([this.sim.time, ...this.ik.graspPoint(data)]);
 
-    const failure = this.evaluate(s);
+    const failure = this.knockedOver() || this.evaluate(s);
     if (failure) return this.fail(failure);
     if (!Object.values(this.checks).every(Boolean)) this.holdSince = null;
     else if (this.holdSince === null) this.holdSince = this.sim.time;
     else if (this.sim.time - this.holdSince >= this.holdTime) this.succeed();
+  }
+
+  // A loose object that isn't part of the task tipped over or fell off the table.
+  knockedOver() {
+    const { data } = this.sim;
+    for (const b of this.props) {
+      if (data.xmat[9 * b + 8] < TIPPED_COS || data.xpos[3 * b + 2] < -0.05) {
+        return `You knocked over ${this.propNames.get(b) || 'something'}. Care robots must leave other things alone.`;
+      }
+    }
+    return null;
   }
 
   fail(reason) {

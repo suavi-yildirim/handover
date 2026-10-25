@@ -27,6 +27,15 @@ MJCF](https://github.com/TheRobotStudio/SO-ARM100/blob/608122e9ac330a753735f2e18
 6. Add default collision solver parameters for the gripper that work well for manipulation.
 7. Add a camera mount.
 
+## Handover changes
+
+Made so the simulated arm is no stronger or grippier than a real SO-101 follower
+(see `docs/kitchen_realism.md`):
+
+- Arm torque limit stays 2.94 N.m, the stall torque of the 12 V STS3215 (1/345) on our arm. For a 7.4 V arm use 1.91 N.m.
+- Gripper torque limit is 1.47 N.m, because LeRobot's follower config caps the gripper at 50%.
+- Jaw friction is 0.4 (bare PLA) instead of 1.
+
 ## License
 
 This model is released under the [Apache License 2.0](LICENSE).
