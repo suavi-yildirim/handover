@@ -156,3 +156,45 @@ Open, game-first (phone, Steam, Quest), care-focused, caregivers as teachers, an
 - Keep data formats LeRobot-compatible.
 - Physics and data correctness come before visual polish.
 - Document success predicates and scoring weights for every new task.
+- Commit as `Suavi Yildirim <345443090+suavi-yildirim@users.noreply.github.com>` (git config per clone), with no Claude co-author or session trailers.
+- Any change to the scene, physics or scoring bumps `GAME_VERSION` in `web/src/recorder.js` and regenerates `tests/fixtures/` (pass the fixture path to each test). Episodes from different versions must not be mixed silently.
+- Run all tests before pushing: `node tests/pick_place.mjs`, `tests/medication.mjs`, `tests/fall_hazard.mjs`, `tests/spacemouse.mjs`.
+
+## 11. Current state and lessons learned (2026-10-25)
+
+What has been built and decided since the plan above. The sections above remain the vision; this section is the ground truth for the code.
+
+### Repo, licenses, running
+- Repo: github.com/suavi-yildirim/handover (account renamed from syldrm3141; old URLs redirect). Local copy: `~/Documents_SY/05_Projects/Handover`.
+- Code is Apache-2.0 (LICENSE, NOTICE lists MuJoCo, the SO-101 model, three.js and qrcode-generator). Recorded play data is CC BY 4.0; every episode carries `"license": "CC-BY-4.0"`. Copyright and attribution: "Suavi Yildirim and the Handover contributors".
+- Run: `python3 tools/phone_server.py` from the repo root, then open http://localhost:8000 (phone page over HTTPS on :8443). Static web app, no build step; MuJoCo WASM 3.16.0 and three.js 0.186.1 are vendored in `web/vendor`.
+- Dev machine is a MacBook M2 with **8 GB RAM**: fine for playing and sim, too slow for SmolVLA training.
+
+### Robot and physics
+- SO-101 from MuJoCo Menagerie; Suavi's real arm has **12 V STS3215 servos**. Arm forcerange 2.94 N·m (12 V stall torque), gripper capped at half (1.47 N·m, like LeRobot's 50% limit), jaw friction 0.4 (bare PLA). Edits are commented in `web/models/so101/so101.xml`. All robot-specific settings live in `web/src/robot.js`; recorded data is arm-specific, so lock the arm before large data collection.
+- Kitchen: table top at z = 0, robot at the origin facing +x. Real-world object physics (porcelain cup 73 g, pill vial 20 g, glasses case 45 g, friction 0.4). Room in `web/models/kitchen/room.xml`; notes in `docs/kitchen_realism.md`.
+- Start pose: gripper level (pitch 0) with the wrist camera on top (roll −90°). A level gripper only reaches the table about 28 cm or more from the shoulder axis, so objects sit 30–36 cm out. Best grasp: hover over the object, lower the open jaws around it, close. Horizontal slide-ins at table height are out of reach.
+- IK: damped least squares on the grasp point (8 mm off `gripperframe` toward the moving jaw), solving position + pitch only; yaw follows the shoulder pan. Unreachable targets are refused (the gripper slides along the reach limit or stops; status bar shows "out of reach") instead of letting the arm fold into a surprising pose.
+
+### Tasks and scoring (details in `docs/tasks.md`)
+- Three kitchen tasks: `cup_on_tray`, `bring_medication` (hold the bottle in the hand zone 1.5 s), `tidy_fall_hazard` (glasses case from the table edge to the safe spot; the floor is out of reach).
+- Score = data quality: speed, smoothness (RMS jerk), no bumps, plus a task metric (kept level / gentle approach / lifted not pushed) and no drops.
+- Shared rules: knocking over (or off the table) any loose object that isn't the task's own fails the episode; the task object hitting another object counts as a bump. Lesson: score every object in the scene, not just the task object, or players get full points for collateral damage.
+- Scripted demos score about 96 / 95 / 89; Suavi's own early runs scored 77–94.
+
+### Episodes and training
+- Browser records full sim state (qpos, qvel, ctrl in radians) on an exact 30 Hz sim-time grid, plus intent, events, tags; exported as `.jsonl.gz` (one episode per line). Log states, not video: cameras are rendered later.
+- `training/` (training thread) converts raw episodes to a LeRobot v3.0 dataset: joints in degrees, gripper 0–100, 30 fps, 480×640 `front` (kitchen.xml) and `wrist_cam` (so101.xml) views. Schema in `docs/episode_schema.md`. Only successful, CC BY 4.0 episodes are kept by default; filter by `game_version` because layouts and arm strength changed (0.3.0 old layout, 0.4.x level start).
+- SmolVLA fine-tuning runs on a **free Colab T4** (`training/colab_train.ipynb`) because the 8 GB Mac is too slow; `policy_server.py` + `rollout.mjs` let the trained policy play the level in the game's own sim and scoring. π0.5 is planned as a later comparison.
+
+### Controls
+- Keyboard: WASD move, E/Q up/down, I/K tilt, J/L roll, Space grip, Shift precise, R reset, 1/2/3 task, C wrist camera inset, V four-view layout.
+- Four-view mode (V): front (from behind the robot), top and side orthographic views with the room hidden, plus the orbit 3D view bottom-left; wrist inset hidden there. Helps judge height and reach; dataset cameras unchanged.
+- Phone (iPhone 16 Pro): the phone is a controller for the game on the Mac via a WebSocket relay. First open runs a 6-move setup wizard (`web/phone/axes.html`) that learns the player's own turns and slides; calibration logs go to `.phone_logs/`. Limits: iOS Safari has no WebXR, so there is no true position tracking; slides come from integrated accelerometer and drift. Real 6-DoF needs a native ARKit app (or Quest 3 WebXR later).
+- 3D mouse (SpaceMouse) works over WebHID in Chrome/Edge only, not Safari.
+
+### Open risks
+- Sim-to-real: gripper friction and grasp physics are tuned by estimate, not measured on the real arm; the gripper direction vs. real LeRobot calibration is unverified.
+- Scene variety: one fixed kitchen layout. Policies need many scene/object variations (domain randomization, more levels) more than more demos of the same scene.
+- Phone tracking drift and control feel; fun still needs playtests with other people.
+- Full risk register and research ideas are kept as artifacts by the risk and research threads.
