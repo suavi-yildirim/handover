@@ -225,6 +225,18 @@ setInterval(renderStatus, 200);
 if (!window.isSecureContext) {
   toast('Opened over http: sticks work, but tilt needs the https:// address.', 6000);
 }
+// iOS ignores user-scalable=no; block pinch and double-tap zoom ourselves so
+// quick taps on Tilt or Grip can't zoom the controls off screen.
+for (const type of ['gesturestart', 'gesturechange', 'dblclick']) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = performance.now();
+  if (now - lastTouchEnd < 350 && e.cancelable && !e.target.closest('button')) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+
 applyMode();
 connect();
 
