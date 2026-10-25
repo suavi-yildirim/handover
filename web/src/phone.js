@@ -225,7 +225,9 @@ export class PhoneInput {
 
     const render = () => {
       if (!info) {
-        el.innerHTML = 'Phone control: start the game with<br><code>python3 tools/phone_server.py</code>';
+        el.innerHTML = ['localhost', '127.0.0.1'].includes(location.hostname)
+          ? 'Phone control: start the game with<br><code>python3 tools/phone_server.py</code>'
+          : 'Phone control needs the local version:<br><code>github.com/suavi-yildirim/handover</code>';
       } else if (this.connected) {
         el.innerHTML = `<b style="color:#3ecf8e">● Phone connected</b><br>`
           + `<span style="color:#8b95a3">${this.active ? 'steering' : 'idle'}`

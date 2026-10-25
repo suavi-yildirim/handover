@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Handover</title>
+  <style>
+    :root { --ink: #1d2730; --panel: rgba(255, 255, 255, 0.86); --accent: #ff3366; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #dfe6ea; color: var(--ink);
+      font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    .panel { position: fixed; background: var(--panel); border-radius: 10px; padding: 10px 14px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); backdrop-filter: blur(6px); }
+    #title { top: 16px; left: 16px; }
+    #title h1 { margin: 0; font-size: 18px; }
+    #title p { margin: 2px 0 0; opacity: 0.7; }
+    #help { top: 16px; right: 16px; display: grid; gap: 4px; font-size: 13px; }
+    #help-keys { display: grid; gap: 4px; }
+    #help-keys div { display: flex; gap: 10px; align-items: center; }
+    #spacemouse { margin-top: 6px; padding: 5px; border: 1px solid #c9d1d6; border-radius: 6px; background: #fff;
+      cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
+    #spacemouse:hover { border-color: var(--accent); }
+    kbd { min-width: 64px; display: inline-block; text-align: center; padding: 1px 6px; border-radius: 5px;
+      background: #fff; border: 1px solid #c9d1d6; font: 12px ui-monospace, Menlo, monospace; }
+    #status { bottom: 16px; left: 16px; right: 16px; font: 12px ui-monospace, Menlo, monospace; }
+    #wrist-label { position: fixed; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000;
+      pointer-events: none; }
+    #view-labels div { position: fixed; transform: translateX(-50%); font-size: 12px; font-weight: 600;
+      opacity: 0.75; pointer-events: none; }
+    /* 4-view layout: thin lines between the views. */
+    body.quad::before, body.quad::after { content: ''; position: fixed; background: rgba(0, 0, 0, 0.25);
+      pointer-events: none; z-index: 0; }
+    body.quad::before { left: 50%; top: 0; bottom: 0; width: 1px; }
+    body.quad::after { top: 50%; left: 0; right: 0; height: 1px; }
+    #loading { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    #task { top: 96px; left: 16px; width: 260px; }
+    #task h2 { margin: 0 0 4px; font-size: 15px; display: flex; justify-content: space-between; }
+    #task-select { font: inherit; font-weight: 700; border: 0; background: transparent; color: var(--ink);
+      padding: 0; margin-left: -2px; max-width: 200px; cursor: pointer; }
+    #task-time { font: 13px ui-monospace, Menlo, monospace; opacity: 0.7; }
+    #task p { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
+    #task ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+    #task li::before { content: '\25CB'; display: inline-block; width: 20px; opacity: 0.5; }
+    #task li.ok::before { content: '\2713'; opacity: 1; color: #1f9d55; font-weight: 700; }
+    #result { top: 50%; left: 50%; transform: translate(-50%, -50%); min-width: 300px; text-align: center; }
+    #result h2 { margin: 4px 0; }
+    #result .score { font-size: 48px; font-weight: 700; color: var(--accent); }
+    #result .score span { font-size: 18px; opacity: 0.6; color: var(--ink); }
+    #result table { margin: 8px auto; border-collapse: collapse; font-size: 13px; text-align: left; }
+    #result td { padding: 2px 6px; }
+    #download, #send-episodes { margin-top: 10px; width: 100%; padding: 6px; border: 1px solid #c9d1d6;
+      border-radius: 6px; background: #fff; cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
+    #send-episodes { margin-top: 6px; }
+    #send-episodes:disabled { opacity: 0.6; cursor: default; border-color: #c9d1d6; }
+    #download:hover, #send-episodes:hover { border-color: var(--accent); }
+    /* Consent dialog for sending episodes. */
+    #send-dialog { border: 0; border-radius: 12px; padding: 18px 20px; max-width: min(420px, 92vw);
+      background: #fff; color: var(--ink); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25); }
+    #send-dialog::backdrop { background: rgba(20, 28, 36, 0.45); }
+    #send-dialog h2 { margin: 0 0 8px; font-size: 17px; }
+    #send-dialog p, #send-dialog li { font-size: 13px; }
+    #send-dialog ul { padding-left: 18px; margin: 6px 0; }
+    #send-dialog label { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; font-size: 13px; }
+    #send-dialog .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+    #send-dialog button { padding: 6px 12px; border-radius: 6px; border: 1px solid #c9d1d6; background: #fff;
+      font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
+    #send-dialog button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #send-dialog button:disabled { opacity: 0.45; cursor: default; }
+    #share-status { margin: 6px 0 0; font-size: 12px; opacity: 0.75; }
+    #share-status.error { color: #b4232c; opacity: 1; }
+    #send-id { font: 12px ui-monospace, Menlo, monospace; }
+    /* Short note after each shared episode, since the menu is usually closed. */
+    #share-toast { top: 16px; right: 16px; font-size: 13px; z-index: 15; max-width: min(340px, 80vw); }
+    #share-toast.error { color: #b4232c; }
+    .dim { opacity: 0.65; font-size: 13px; }
+    /* Side menu: title, task and controls slide in from the left. Hidden by default so the
+       views stay clear; M or the button opens it. */
+    #drawer { position: fixed; top: 0; bottom: 0; left: 0; width: min(300px, 88vw); z-index: 20;
+      box-sizing: border-box; padding: 72px 16px 16px; overflow-y: auto; border-radius: 0 14px 14px 0;
+      background: var(--panel); backdrop-filter: blur(8px); box-shadow: 4px 0 18px rgba(0, 0, 0, 0.12);
+      transform: translateX(-105%); transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    #drawer.open { transform: translateX(0); }
+    #drawer .panel { position: static; width: auto; box-shadow: none; background: none; backdrop-filter: none;
+      padding: 0; margin: 0 0 18px; }
+    #menu-toggle { position: fixed; top: 16px; left: 16px; z-index: 30; width: 42px; height: 42px; padding: 0;
+      border: 0; border-radius: 10px; background: var(--panel); backdrop-filter: blur(6px); cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1); color: var(--ink); font-size: 20px; line-height: 42px;
+      transition: left 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    #menu-toggle:hover { color: var(--accent); }
+    #menu-toggle.open { left: calc(min(300px, 88vw) + 16px); }
+    /* Precision slider: scales every input (keys, phone, 3D mouse). */
+    #speed { top: 16px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex;
+      align-items: center; gap: 8px; font-size: 13px; padding: 8px 14px; white-space: nowrap; }
+    #speed input { width: min(240px, 40vw); accent-color: var(--accent); cursor: pointer; }
+    #speed output { min-width: 42px; text-align: right; font: 12px ui-monospace, Menlo, monospace; }
+    @media (prefers-reduced-motion: reduce) { #drawer, #menu-toggle { transition: none; } }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <button id="menu-toggle" type="button" aria-controls="drawer" aria-expanded="false" title="Menu (M)">☰</button>
+  <aside id="drawer" aria-label="Menu">
+    <div id="title" class="panel"><h1>Handover</h1><p>Kitchen · teach the robot to care</p></div>
+    <div id="task" class="panel">
+      <h2><select id="task-select" aria-label="Task"></select><span id="task-time"></span></h2>
+      <p id="task-hint"></p>
+      <ul id="task-checks"></ul>
+      <button id="download" hidden></button>
+      <button id="send-episodes" hidden></button>
+      <p id="share-status" hidden></p>
+    </div>
+    <div id="help" class="panel">
+      <div id="help-keys"></div>
+      <button id="spacemouse" hidden title="Chrome or Edge: pick your SpaceMouse in the browser's device list"></button>
+    </div>
+  </aside>
+  <div id="speed" class="panel">
+    <span>Precise</span>
+    <input id="speed-slider" type="range" min="0.2" max="1" step="0.05" value="1" aria-label="Speed, from precise to fast">
+    <span>Fast</span>
+    <output id="speed-out">100%</output>
+  </div>
+  <dialog id="send-dialog" aria-labelledby="send-title">
+    <h2 id="send-title">Share my episodes</h2>
+    <p>When sharing is on, every episode you finish is sent automatically to the Handover project's
+      dataset on Hugging Face. No login is needed. <span id="send-summary"></span></p>
+    <p>Each episode holds:</p>
+    <ul>
+      <li>the robot's joint positions, speeds and motor commands, 30 times per second (simulated, no camera images or sound)</li>
+      <li>your steering inputs, the task, its result and score, and the devices you used</li>
+      <li>the game version and a random contributor ID kept in this browser, which links your episodes together</li>
+    </ul>
+    <p>Failed attempts are included; training filters them out. Nothing else about you is in the file.</p>
+    <p><strong>The episodes are released under CC BY 4.0.</strong> The project publishes them as an open dataset:
+      anyone may use, change and share them, including for commercial work, if they credit the Handover contributors.</p>
+    <p><strong>Privacy.</strong> The upload server sees your IP address while it receives a file, to stop floods,
+      but never saves it. You can turn sharing off at any time in the menu. To have episodes you already shared removed,
+      quote your contributor ID: <span id="send-id"></span></p>
+    <form method="dialog" id="send-form">
+      <label><input type="checkbox" id="send-consent"> I agree that my episodes are shared and published under
+        CC BY 4.0.</label>
+      <div class="actions">
+        <button type="submit" value="cancel">Not now</button>
+        <button type="button" id="send-go" class="primary" disabled>Turn on sharing</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="result" class="panel" hidden></div>
+  <div id="share-toast" class="panel" role="status" aria-live="polite" hidden></div>
+  <div id="view-labels"></div>
+  <div id="wrist-label">Wrist camera · C hides</div>
+  <div id="status" class="panel">Loading…</div>
+  <div id="loading" class="panel">Loading physics and robot model…</div>
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
