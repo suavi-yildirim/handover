@@ -52,14 +52,15 @@ export class Recorder {
     this.nextT = this.sim.time;
   }
 
-  // Call after physics each rendered frame. Records when a 1/FPS boundary of sim time
-  // has been reached; after a stall it resumes from now rather than backfilling.
+  // Call after every physics step. Records the first state at or past each 1/FPS
+  // boundary of sim time, so frames land within one step of an exact 30 Hz grid.
   update() {
     const ep = this.current;
     if (!ep) return;
     const { data } = this.sim;
     if (data.time + 1e-9 < this.nextT) return;
-    this.nextT = Math.max(this.nextT + 1 / FPS, data.time + 1e-9);
+    this.nextT += 1 / FPS;
+    if (data.time >= this.nextT) this.nextT = data.time + 1 / FPS; // stalled: don't backfill
     const f = ep.frames, t = this.teleop, i = ep.intent;
     f.time.push(round(data.time));
     f.qpos.push(arr(data.qpos));

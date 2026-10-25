@@ -1,67 +1,56 @@
-// Task: put the cup on the tray. Success predicates and quality metrics are computed
-// from simulator ground truth each frame. Game score = data-quality score.
+// Kitchen tasks. Success predicates and quality metrics are computed from simulator
+// ground truth each frame. Game score = data-quality score.
 // Predicates and weights are documented in docs/tasks.md; keep the two in sync.
 
-const HOLD_TIME = 0.5;            // s all success predicates must hold continuously
 const UPRIGHT_COS = Math.cos((15 * Math.PI) / 180);
 const TIPPED_COS = Math.cos((60 * Math.PI) / 180);
-const SETTLED_SPEED = 0.02;       // m/s
-const TRAY_INNER = [0.055, 0.04]; // half extents (m) the cup center must stay within
-const ON_TRAY_MAX_Z = 0.015;      // cup origin height above table when resting on the tray floor
-const DROP_HEIGHT = 0.03;         // cup released with its base this high counts as a drop
+const DROP_HEIGHT = 0.03;         // object released with its origin this high counts as a drop
 const SAMPLE_DT = 0.04;           // s between motion samples for smoothness
 
-export const WEIGHTS = { time: 0.15, smoothness: 0.2, gentleness: 0.25, spill: 0.25, drops: 0.15 };
-
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const deg = (rad) => (rad * 180) / Math.PI;
 
-export class CupOnTrayTask {
-  constructor(sim, ik) {
+// Shared machinery: contact classification, grasp detection, bumps, smoothness, the
+// "all predicates hold for HOLD seconds" rule, and weighted scoring.
+class Task {
+  constructor(sim, ik, objectBody) {
     this.sim = sim;
     this.ik = ik;
-    this.id = 'cup_on_tray';
-    this.title = 'Put the cup on the tray';
-    this.instruction = 'Put the cup on the tray.'; // the exact prompt a trained policy gets
-    this.hint = 'Pick up the blue cup and set it down upright on the green tray. Keep it level and don’t bump anything.';
     const { model } = sim;
-    this.cup = sim.id('BODY', 'cup');
-    this.tray = sim.id('BODY', 'tray');
-    this.cupFree = model.jnt_dofadr[sim.id('JOINT', 'cup_free')];
+    this.obj = sim.id('BODY', objectBody);
+    this.objDof = model.jnt_dofadr[model.body_jntadr[this.obj]];
     const base = sim.id('BODY', 'base');
     const fixedJaw = sim.id('BODY', 'gripper');
     const movingJaw = sim.id('BODY', 'moving_jaw_so101_v1');
     // Geom roles, decided once from the body tree.
-    this.role = new Int8Array(model.ngeom); // 0 other, 1 robot, 2 cup, 3 fixed jaw, 4 moving jaw
+    this.role = new Int8Array(model.ngeom); // 0 other, 1 robot, 2 task object, 3 fixed jaw, 4 moving jaw
     for (let g = 0; g < model.ngeom; g++) {
       const b = model.geom_bodyid[g];
-      if (b === this.cup) this.role[g] = 2;
+      if (b === this.obj) this.role[g] = 2;
       else if (b === fixedJaw) this.role[g] = 3;
       else if (b === movingJaw) this.role[g] = 4;
       else if (model.body_rootid[b] === base) this.role[g] = 1;
     }
-    this.reset();
   }
 
   reset() {
     this.start = this.sim.time;
     this.time = 0;
     this.state = 'playing'; // playing | success | failed
-    this.failReason = '';
     this.holdSince = null;
-    this.checks = { onTray: false, upright: true, released: true, settled: true };
     this.held = false;
     this.bumps = 0;
     this.touching = new Set(); // robot-vs-other geom pairs in contact last frame
-    this.maxCarryTilt = 0;
     this.drops = 0;
     this.samples = []; // [simTime, x, y, z] of the grasp point
     this.result = null;
+    this.checks = Object.fromEntries(Object.keys(this.checkLabels).map((k) => [k, false]));
   }
 
-  // Classify current contacts: is the cup held, and which robot bumps started this frame.
+  // Classify current contacts: is the object held, and which robot bumps started this frame.
   scanContacts() {
     const { data } = this.sim;
-    let fixed = false, moving = false, cupSupported = false;
+    let fixed = false, moving = false, supported = false;
     const now = new Set();
     const contacts = data.contact;
     for (let i = 0; i < data.ncon; i++) {
@@ -71,9 +60,9 @@ export class CupOnTrayTask {
         const other = a === 2 ? b : a;
         if (other === 3) fixed = true;
         else if (other === 4) moving = true;
-        else if (other === 0) cupSupported = true;
+        else if (other === 0) supported = true;
       } else if ((a === 0 && b !== 0) || (b === 0 && a !== 0)) {
-        // Robot touching furniture or another object (not the cup): a bump.
+        // Robot touching furniture or another object (not the task object): a bump.
         now.add(c.geom1 < c.geom2 ? `${c.geom1}:${c.geom2}` : `${c.geom2}:${c.geom1}`);
       }
       c.delete?.();
@@ -81,7 +70,7 @@ export class CupOnTrayTask {
     contacts.delete();
     for (const k of now) if (!this.touching.has(k)) this.bumps++;
     this.touching = now;
-    return { held: fixed && moving, touchingCup: fixed || moving, cupSupported };
+    return { held: fixed && moving, touching: fixed || moving, supported };
   }
 
   // Call once per rendered frame, after stepping physics. Uses simulation time, so
@@ -90,38 +79,30 @@ export class CupOnTrayTask {
     if (this.state !== 'playing') return;
     const { data } = this.sim;
     this.time = this.sim.time - this.start;
-
-    const p = data.xpos.subarray(3 * this.cup, 3 * this.cup + 3);
-    const t = data.xpos.subarray(3 * this.tray, 3 * this.tray + 3);
-    const upCos = data.xmat[9 * this.cup + 8];
-    const v = data.qvel.subarray(this.cupFree, this.cupFree + 3);
-    const speed = Math.hypot(v[0], v[1], v[2]);
-    const { held, touchingCup, cupSupported } = this.scanContacts();
-
-    if (this.held && !held && !cupSupported && p[2] > DROP_HEIGHT) this.drops++;
-    this.held = held;
-    if (held && !cupSupported) {
-      this.maxCarryTilt = Math.max(this.maxCarryTilt, Math.acos(Math.min(1, upCos)));
-    }
+    const p = data.xpos.subarray(3 * this.obj, 3 * this.obj + 3);
+    const v = data.qvel.subarray(this.objDof, this.objDof + 3);
+    const s = {
+      pos: p,
+      upCos: data.xmat[9 * this.obj + 8],
+      speed: Math.hypot(v[0], v[1], v[2]),
+      ...this.scanContacts(),
+    };
+    s.dropped = this.held && !s.held && !s.supported && p[2] > DROP_HEIGHT;
+    if (s.dropped) this.drops++;
+    this.held = s.held;
 
     const last = this.samples[this.samples.length - 1];
     if (!last || this.sim.time - last[0] >= SAMPLE_DT) this.samples.push([this.sim.time, ...this.ik.graspPoint(data)]);
 
-    if (upCos < TIPPED_COS) return this.fail('The cup tipped over.');
-
-    const c = this.checks;
-    c.onTray = Math.abs(p[0] - t[0]) < TRAY_INNER[0] && Math.abs(p[1] - t[1]) < TRAY_INNER[1] && p[2] < ON_TRAY_MAX_Z;
-    c.upright = upCos > UPRIGHT_COS;
-    c.released = !touchingCup;
-    c.settled = speed < SETTLED_SPEED;
-    if (!(c.onTray && c.upright && c.released && c.settled)) this.holdSince = null;
+    const failure = this.evaluate(s);
+    if (failure) return this.fail(failure);
+    if (!Object.values(this.checks).every(Boolean)) this.holdSince = null;
     else if (this.holdSince === null) this.holdSince = this.sim.time;
-    else if (this.sim.time - this.holdSince >= HOLD_TIME) this.succeed();
+    else if (this.sim.time - this.holdSince >= this.holdTime) this.succeed();
   }
 
   fail(reason) {
     this.state = 'failed';
-    this.failReason = reason;
     this.result = { success: false, score: 0, reason };
   }
 
@@ -139,24 +120,122 @@ export class CupOnTrayTask {
     return Math.sqrt(sum / jerk.length);
   }
 
-  succeed() {
-    this.state = 'success';
+  // Metrics every task shares; tasks add their own in metrics().
+  commonMetrics() {
     const jerk = this.rmsJerk();
-    const tiltDeg = (this.maxCarryTilt * 180) / Math.PI;
-    const metrics = {
-      time: clamp01(1 - (this.time - 20) / 70),           // full marks up to 20 s, zero at 90 s
-      smoothness: Math.exp(-jerk / 60),                    // 60 m/s^3 RMS jerk ~ 37%
-      gentleness: clamp01(1 - 0.2 * this.bumps),           // -20% per bump
-      spill: clamp01(1 - (tiltDeg - 10) / 35),             // full marks under 10 deg tilt, zero at 45
-      drops: clamp01(1 - 0.5 * this.drops),
-    };
-    let score = 0;
-    for (const k in WEIGHTS) score += WEIGHTS[k] * metrics[k];
-    this.result = {
-      success: true,
-      score: Math.round(100 * score),
-      metrics,
-      raw: { time: this.time, rmsJerk: jerk, bumps: this.bumps, maxCarryTiltDeg: tiltDeg, drops: this.drops },
+    return {
+      metrics: {
+        time: clamp01(1 - (this.time - 20) / 70),   // full marks up to 20 s, zero at 90 s
+        smoothness: Math.exp(-jerk / 60),            // 60 m/s^3 RMS jerk ~ 37%
+        gentleness: clamp01(1 - 0.2 * this.bumps),   // -20% per bump
+      },
+      raw: { time: this.time, rmsJerk: jerk, bumps: this.bumps, drops: this.drops },
     };
   }
+
+  succeed() {
+    this.state = 'success';
+    const { metrics, raw } = this.metrics();
+    let score = 0;
+    for (const k in this.weights) score += this.weights[k] * metrics[k];
+    this.result = { success: true, score: Math.round(100 * score), metrics, raw };
+  }
 }
+
+export class CupOnTrayTask extends Task {
+  constructor(sim, ik) {
+    super(sim, ik, 'cup');
+    this.id = 'cup_on_tray';
+    this.title = 'Put the cup on the tray';
+    this.instruction = 'Put the cup on the tray.'; // the exact prompt a trained policy gets
+    this.hint = 'Pick up the blue cup and set it down upright on the green tray. Keep it level and don’t bump anything.';
+    this.checkLabels = { onTray: 'Cup on the tray', upright: 'Upright', released: 'Gripper let go', settled: 'Resting still' };
+    this.metricLabels = { time: 'Speed', smoothness: 'Smooth motion', gentleness: 'No bumps', spill: 'Kept level', drops: 'No drops' };
+    this.weights = { time: 0.15, smoothness: 0.2, gentleness: 0.25, spill: 0.25, drops: 0.15 };
+    this.holdTime = 0.5;
+    this.tray = sim.id('BODY', 'tray');
+    this.reset();
+  }
+
+  reset() {
+    super.reset();
+    this.maxCarryTilt = 0;
+  }
+
+  evaluate(s) {
+    if (s.held && !s.supported) this.maxCarryTilt = Math.max(this.maxCarryTilt, Math.acos(Math.min(1, s.upCos)));
+    if (s.upCos < TIPPED_COS) return 'The cup tipped over.';
+    const t = this.sim.data.xpos.subarray(3 * this.tray, 3 * this.tray + 3), p = s.pos, c = this.checks;
+    // Inner tray area (half extents 5.5 x 4 cm); resting on the tray floor puts the cup origin below 1.5 cm.
+    c.onTray = Math.abs(p[0] - t[0]) < 0.055 && Math.abs(p[1] - t[1]) < 0.04 && p[2] < 0.015;
+    c.upright = s.upCos > UPRIGHT_COS;
+    c.released = !s.touching;
+    c.settled = s.speed < 0.02;
+    return null;
+  }
+
+  metrics() {
+    const { metrics, raw } = this.commonMetrics();
+    const tiltDeg = deg(this.maxCarryTilt);
+    metrics.spill = clamp01(1 - (tiltDeg - 10) / 35);   // full marks under 10 deg tilt, zero at 45
+    metrics.drops = clamp01(1 - 0.5 * this.drops);
+    raw.maxCarryTiltDeg = tiltDeg;
+    return { metrics, raw };
+  }
+}
+
+// Hand the medicine bottle to a person: bring it into the hand zone and hold it there,
+// steady and upright, while they take it.
+export class MedicationTask extends Task {
+  constructor(sim, ik) {
+    super(sim, ik, 'pill_bottle');
+    this.id = 'bring_medication';
+    this.title = 'Bring the medication';
+    this.instruction = 'Hand the medicine bottle to the person.';
+    this.hint = 'Pick up the orange medicine bottle and hold it still, upright, inside the pink hand zone so the person can take it. Approach slowly.';
+    this.checkLabels = { held: 'Holding the bottle', inZone: 'In the hand zone', upright: 'Upright', steady: 'Holding still' };
+    this.metricLabels = { time: 'Speed', smoothness: 'Smooth motion', gentleness: 'No bumps', approach: 'Gentle approach', steadiness: 'Steady hold' };
+    this.weights = { time: 0.15, smoothness: 0.2, gentleness: 0.2, approach: 0.25, steadiness: 0.2 };
+    this.holdTime = 1.5;
+    this.zone = sim.id('SITE', 'hand_zone');
+    this.zoneRadius = sim.model.site_size[3 * this.zone];
+    this.reset();
+  }
+
+  reset() {
+    super.reset();
+    this.wasInZone = false;
+    this.entrySpeed = null;      // speed of the bottle when it first entered the zone
+    this.holdSpeeds = [];        // bottle speeds during the final hold
+  }
+
+  evaluate(s) {
+    if (s.dropped) return 'The bottle was dropped. In a real handover it would fall.';
+    if (s.upCos < TIPPED_COS) return 'The bottle tipped over.';
+    const z = this.sim.data.site_xpos.subarray(3 * this.zone, 3 * this.zone + 3), p = s.pos, c = this.checks;
+    // The bottle's center (origin + half its 7 cm height) must be inside the zone.
+    const inZone = Math.hypot(p[0] - z[0], p[1] - z[1], p[2] + 0.036 - z[2]) < this.zoneRadius;
+    if (inZone && !this.wasInZone && this.entrySpeed === null) this.entrySpeed = s.speed;
+    this.wasInZone = inZone;
+    c.held = s.held;
+    c.inZone = inZone;
+    c.upright = s.upCos > Math.cos((30 * Math.PI) / 180);
+    c.steady = s.speed < 0.03;
+    if (Object.values(c).every(Boolean)) this.holdSpeeds.push(s.speed);
+    else this.holdSpeeds = [];
+    return null;
+  }
+
+  metrics() {
+    const { metrics, raw } = this.commonMetrics();
+    const entry = this.entrySpeed ?? 0;
+    const meanHold = this.holdSpeeds.length ? this.holdSpeeds.reduce((a, b) => a + b, 0) / this.holdSpeeds.length : 0;
+    metrics.approach = clamp01(1 - (entry - 0.05) / 0.2);    // full marks entering under 5 cm/s, zero at 25 cm/s
+    metrics.steadiness = clamp01(1 - meanHold / 0.03);         // mean speed during the hold, zero at 3 cm/s
+    raw.entrySpeed = entry;
+    raw.meanHoldSpeed = meanHold;
+    return { metrics, raw };
+  }
+}
+
+export const TASKS = [CupOnTrayTask, MedicationTask];

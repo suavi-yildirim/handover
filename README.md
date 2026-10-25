@@ -58,9 +58,16 @@ Then open <http://localhost:8000>.
 | Space | open / close the gripper |
 | Shift | slow, precise moves |
 | R | reset the level |
+| 1 / 2 | switch task |
 | Mouse | orbit and zoom the camera |
 
-Task: pick up the blue cup and set it down upright on the green tray. The panel on the
+Pick a task in the task panel (or press 1 or 2):
+
+1. **Put the cup on the tray**: pick up the blue cup and set it down upright on the green tray.
+2. **Bring the medication**: hold the orange medicine bottle still and upright inside the
+   pink hand zone so a person can take it. Approach slowly.
+
+For task 1: The panel on the
 left shows which success checks are met; when all hold, you get a score out of 100 for
 speed, smooth motion, no bumps, keeping the cup level, and no drops. Tip: lower the open
 gripper around the cup with E/Q, press Space to grip, lift, move over the tray, lower,
@@ -106,10 +113,12 @@ episode is in `tests/fixtures/`.
 
 ```sh
 node tests/pick_place.mjs
+node tests/medication.mjs
 ```
 
 Runs the game's own simulation and control code headlessly and checks that a scripted
-player can pick up the cup, place it upright on the tray, and get a success and a score. Needs Node 18+.
+player can complete each task (cup on the tray, medication handover), get a success and a
+score, and record a clean 30 fps episode. Needs Node 18+.
 
 ## Project layout
 
@@ -135,7 +144,9 @@ web/
 tools/
   phone_server.py       local server: HTTP for the Mac, HTTPS + WebSocket relay for the phone
 tests/
-  pick_place.mjs        headless pick-and-place + scoring check
+  harness.mjs           shared headless test setup
+  pick_place.mjs        task 1: pick-and-place, scoring and recording check
+  medication.mjs        task 2: handover check
 docs/
   tasks.md              success predicates and score weights for each task
 CLAUDE.md               full product and technical context

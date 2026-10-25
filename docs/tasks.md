@@ -33,7 +33,8 @@ Score = 100 × Σ weight × metric. Each metric is between 0 and 1.
 | Kept level | 0.25 | 1 up to 10° max tilt while the cup is carried, falling linearly to 0 at 45° | Proxy for spilling |
 | No drops | 0.15 | 1 − 0.5 × number of times the cup was let go while more than 3 cm up and unsupported | Drops and regrasps are low-quality demos |
 
-A scripted, straight-line demo scores about 95 (`node tests/pick_place.mjs`).
+Task id `cup_on_tray`, policy prompt "Put the cup on the tray." A scripted,
+straight-line demo scores about 95 (`node tests/pick_place.mjs`).
 
 ### Tuning notes
 
@@ -44,8 +45,39 @@ A scripted, straight-line demo scores about 95 (`node tests/pick_place.mjs`).
 - Later layers from CLAUDE.md (robot feasibility replay, gold levels, peer review) are not
   in the score yet.
 
+## Task 2: Bring the medication (kitchen)
+
+Task id `bring_medication`, policy prompt "Hand the medicine bottle to the person." The
+player picks up the orange medicine bottle and holds it in the pink hand zone (a 4 cm
+radius sphere where a person's hand waits) so the person can take it.
+
+### Success
+
+All of these must hold continuously for **1.5 s** (simulation time):
+
+| Predicate | Definition |
+|---|---|
+| Holding the bottle | Both gripper jaws touch the bottle |
+| In the hand zone | Bottle center (origin + 3.6 cm) within the hand zone sphere |
+| Upright | Bottle axis within 30° of vertical |
+| Holding still | Bottle linear speed below 3 cm/s |
+
+The episode **fails** if the bottle is let go while more than 3 cm up and unsupported
+(dropped), or tilts more than 60° from vertical.
+
+### Score (0–100, only on success)
+
+| Metric | Weight | Formula | Why it matters for data |
+|---|---|---|---|
+| Speed | 0.15 | as task 1 | |
+| Smooth motion | 0.20 | as task 1 | |
+| No bumps | 0.20 | as task 1 | |
+| Gentle approach | 0.25 | 1 when the bottle first enters the zone below 5 cm/s, falling linearly to 0 at 25 cm/s | A handover must never jab at a person's hand |
+| Steady hold | 0.20 | 1 − mean bottle speed during the final hold / 3 cm/s | The person needs a still object to take |
+
+A scripted demo with a 4 cm/s final approach scores about 94 (`node tests/medication.mjs`).
+
 ## Planned tasks
 
-2. **Bring the medication**: carry the pill bottle to the hand zone and hold it there
-   steadily for a handover.
-3. **Tidy a fall hazard**: move an object off the floor or walkway to a safe place.
+3. **Tidy a fall hazard**: move an object off the floor or walkway to a safe place. Needs
+   a new object in the scene, so it waits for the kitchen realism work to land.

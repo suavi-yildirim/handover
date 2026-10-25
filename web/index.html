@@ -22,6 +22,8 @@
     #loading { top: 50%; left: 50%; transform: translate(-50%, -50%); }
     #task { top: 96px; left: 16px; width: 260px; }
     #task h2 { margin: 0 0 4px; font-size: 15px; display: flex; justify-content: space-between; }
+    #task-select { font: inherit; font-weight: 700; border: 0; background: transparent; color: var(--ink);
+      padding: 0; margin-left: -2px; max-width: 200px; cursor: pointer; }
     #task-time { font: 13px ui-monospace, Menlo, monospace; opacity: 0.7; }
     #task p { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
     #task ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
@@ -44,7 +46,7 @@
   <canvas id="view"></canvas>
   <div id="title" class="panel"><h1>Handover</h1><p>Kitchen · teach the robot to care</p></div>
   <div id="task" class="panel">
-    <h2><span id="task-title"></span><span id="task-time"></span></h2>
+    <h2><select id="task-select" aria-label="Task"></select><span id="task-time"></span></h2>
     <p id="task-hint"></p>
     <ul id="task-checks"></ul>
     <button id="download" hidden></button>
