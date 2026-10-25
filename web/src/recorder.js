@@ -111,20 +111,31 @@ export class Recorder {
 
   get count() { return this.episodes.length; }
 
-  // All finished episodes as one gzipped JSON Lines file (one episode per line), since
-  // browsers block a burst of separate downloads.
-  async download() {
-    if (!this.episodes.length) return;
+  // Episodes as one gzipped JSON Lines file (one episode per line). Returns { blob, name }.
+  // Gzip is used where the browser supports it; the blob type says which.
+  async file() {
     const text = this.episodes.map((e) => JSON.stringify(e)).join('\n') + '\n';
     let blob = new Blob([text], { type: 'application/x-ndjson' }), ext = 'jsonl';
     if (globalThis.CompressionStream) {
-      blob = await new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+      const gz = await new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+      blob = new Blob([gz], { type: 'application/gzip' });
       ext = 'jsonl.gz';
     }
+    const name = `handover-episodes-${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+    return { blob, name };
+  }
+
+  // Saves a { blob, name } from file() to the device.
+  save({ blob, name }) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `handover-episodes-${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // All finished episodes as one file, since browsers block a burst of separate downloads.
+  async download() {
+    if (this.episodes.length) this.save(await this.file());
   }
 }

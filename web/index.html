@@ -48,9 +48,25 @@
     #result .score span { font-size: 18px; opacity: 0.6; color: var(--ink); }
     #result table { margin: 8px auto; border-collapse: collapse; font-size: 13px; text-align: left; }
     #result td { padding: 2px 6px; }
-    #download { margin-top: 10px; width: 100%; padding: 6px; border: 1px solid #c9d1d6; border-radius: 6px;
-      background: #fff; cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
-    #download:hover { border-color: var(--accent); }
+    #download, #send-episodes { margin-top: 10px; width: 100%; padding: 6px; border: 1px solid #c9d1d6;
+      border-radius: 6px; background: #fff; cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
+    #send-episodes { margin-top: 6px; }
+    #download:hover, #send-episodes:hover { border-color: var(--accent); }
+    /* Consent dialog for sending episodes. */
+    #send-dialog { border: 0; border-radius: 12px; padding: 18px 20px; max-width: min(420px, 92vw);
+      background: #fff; color: var(--ink); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25); }
+    #send-dialog::backdrop { background: rgba(20, 28, 36, 0.45); }
+    #send-dialog h2 { margin: 0 0 8px; font-size: 17px; }
+    #send-dialog p, #send-dialog li { font-size: 13px; }
+    #send-dialog ul { padding-left: 18px; margin: 6px 0; }
+    #send-dialog label { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; font-size: 13px; }
+    #send-dialog .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+    #send-dialog button { padding: 6px 12px; border-radius: 6px; border: 1px solid #c9d1d6; background: #fff;
+      font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
+    #send-dialog button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #send-dialog button:disabled { opacity: 0.45; cursor: default; }
+    #send-status { font-size: 13px; }
+    #send-status a { color: var(--accent); }
     .dim { opacity: 0.65; font-size: 13px; }
     /* Side menu: title, task and controls slide in from the left. Hidden by default so the
        views stay clear; M or the button opens it. */
@@ -85,6 +101,7 @@
       <p id="task-hint"></p>
       <ul id="task-checks"></ul>
       <button id="download" hidden></button>
+      <button id="send-episodes" hidden>Send my episodes</button>
     </div>
     <div id="help" class="panel">
       <div id="help-keys"></div>
@@ -97,6 +114,31 @@
     <span>Fast</span>
     <output id="speed-out">100%</output>
   </div>
+  <dialog id="send-dialog" aria-labelledby="send-title">
+    <h2 id="send-title">Send my episodes</h2>
+    <p id="send-summary"></p>
+    <p>The file holds, for each episode:</p>
+    <ul>
+      <li>the robot's joint positions, speeds and motor commands, 30 times per second (simulated, no camera images or sound)</li>
+      <li>your steering inputs, the task, its result and score, and the devices you used</li>
+      <li>the game version and a random contributor ID kept in this browser, which links your episodes together</li>
+    </ul>
+    <p>Failed attempts are included; training filters them out. Nothing else about you is in the file.</p>
+    <p><strong>The file is released under CC BY 4.0.</strong> Anyone may use, change and share it, including for
+      commercial work, if they credit the Handover contributors.</p>
+    <p><strong>Sending is public.</strong> The file goes into a public GitHub issue on the project's repository.
+      GitHub keeps issues and their history, so the file can't be fully removed later. Your IP address is visible to
+      GitHub, as with any web request. You need a GitHub account to post the issue.</p>
+    <form method="dialog" id="send-form">
+      <label><input type="checkbox" id="send-consent"> I understand and agree that these episodes are published
+        under CC BY 4.0 in a public GitHub issue.</label>
+      <div class="actions">
+        <button type="submit" value="cancel">Not now</button>
+        <button type="button" id="send-go" class="primary" disabled>Download and open issue</button>
+      </div>
+    </form>
+    <p id="send-status" role="status" aria-live="polite"></p>
+  </dialog>
   <div id="result" class="panel" hidden></div>
   <div id="view-labels"></div>
   <div id="wrist-label">Wrist camera · C hides</div>

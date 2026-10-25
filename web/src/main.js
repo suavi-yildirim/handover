@@ -6,7 +6,8 @@ import { ROBOT } from './robot.js';
 import { PhoneInput, addCommands } from './phone.js';
 import { SpaceMouseInput } from './spacemouse.js';
 import { TASKS } from './task.js';
-import { Recorder } from './recorder.js';
+import { Recorder, GAME_VERSION } from './recorder.js';
+import { issueUrl, openIssue } from './upload.js';
 
 const LEVEL = 'models/kitchen.xml';
 const MAX_STEPS_PER_FRAME = 50; // don't spiral if a frame takes too long
@@ -40,6 +41,7 @@ async function main() {
   };
   recorder.start(task);
   $('download').addEventListener('click', (e) => { recorder.download(); e.currentTarget.blur(); });
+  setupSend(recorder);
   const keys = new Keyboard({ onToggleGrip: () => teleop.toggleGrip(), onReset: reset });
   window.addEventListener('keydown', (e) => {
     const i = Number(e.key) - 1;
@@ -194,7 +196,55 @@ function showTask(task) {
 
 function showEpisodes(recorder) {
   $('download').hidden = recorder.count === 0;
+  $('send-episodes').hidden = recorder.count === 0;
   $('download').textContent = `Download ${recorder.count} episode${recorder.count === 1 ? '' : 's'}`;
+}
+
+// Sending is opt-in: a consent step states what the file holds and that it is published under
+// CC-BY-4.0 in a public GitHub issue. Only after the box is ticked does the file download and
+// the issue page open, so the player attaches the file themselves. Declining keeps the episodes
+// here, and Download still works. See docs/upload.md.
+function setupSend(recorder) {
+  const dialog = $('send-dialog'), consent = $('send-consent'), go = $('send-go'), status = $('send-status');
+  $('send-episodes').addEventListener('click', async (e) => {
+    e.currentTarget.blur();
+    consent.checked = false;
+    go.disabled = true;
+    status.textContent = '';
+    try {
+      const { blob } = await recorder.file();
+      const n = recorder.count;
+      $('send-summary').textContent =
+        `This file has ${n} episode${n === 1 ? '' : 's'} (about ${Math.max(1, Math.round(blob.size / 1024))} KB).`;
+      dialog.showModal();
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Could not prepare the file. Try Download instead.';
+    }
+  });
+  consent.addEventListener('change', () => { go.disabled = !consent.checked; });
+  go.addEventListener('click', async () => {
+    go.disabled = true;
+    try {
+      const file = await recorder.file();
+      recorder.save(file);
+      const url = issueUrl({ count: recorder.count, gameVersion: GAME_VERSION, filename: file.name });
+      if (openIssue(url)) {
+        status.textContent = 'Downloaded. A GitHub issue opened in a new tab: drag the downloaded file into it ' +
+          'and submit. Nothing is public until you submit.';
+      } else {
+        status.textContent = 'Downloaded. Your browser blocked the new tab, so open the issue yourself and drag ' +
+          'the downloaded file into it. Nothing is public until you submit: ';
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open the issue';
+        status.append(a);
+      }
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Could not prepare the file. Try Download instead.';
+    }
+    go.disabled = !consent.checked;
+  });
 }
 
 // Best scores and the chosen task are per-browser conveniences; storage may be unavailable.
