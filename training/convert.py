@@ -178,7 +178,7 @@ def main(argv=None):
         qpos, qvel = frames["qpos"], frames["qvel"]
         state = units.state(qpos)
         action = units.action(frames["ctrl"])
-        for i in tqdm(range(len(qpos)), desc=name, leave=False):
+        for i in tqdm(range(len(qpos)), desc=name, leave=False, disable=not sys.stderr.isatty()):
             scene.set_state(qpos[i], qvel[i])
             frame = {
                 "observation.state": state[i],
