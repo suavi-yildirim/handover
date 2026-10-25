@@ -3,6 +3,7 @@ import { Teleop } from './teleop.js';
 import { Renderer } from './render.js';
 import { Keyboard, KEY_HELP } from './keyboard.js';
 import { ROBOT } from './robot.js';
+import { PhoneInput, addCommands } from './phone.js';
 
 const LEVEL = 'models/kitchen.xml';
 const MAX_STEPS_PER_FRAME = 50; // don't spiral if a frame takes too long
@@ -16,19 +17,22 @@ async function main() {
 
   const reset = () => { sim.reset(); teleop.reset(); };
   const keys = new Keyboard({ onToggleGrip: () => teleop.toggleGrip(), onReset: reset });
+  const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed), getGrip: () => teleop.gripClosed });
+  phone.showBadge(document.body, { bottom: 64 });
 
   $('help').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
   $('loading').remove();
 
   // Exposed for debugging and automated tests.
-  window.handover = { sim, teleop, view, keys, reset };
+  window.handover = { sim, teleop, view, keys, phone, reset };
 
   let last = performance.now(), simLag = 0, fps = 0, frames = 0, fpsT = last;
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
 
-    teleop.command(keys.command(view.groundAxes()), dt);
+    const axes = view.groundAxes();
+    teleop.command(addCommands(keys.command(axes), phone.command(axes, dt)), dt);
     teleop.apply(dt);
 
     simLag += dt;

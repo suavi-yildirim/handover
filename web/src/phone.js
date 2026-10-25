@@ -4,7 +4,10 @@
 // WebSocket relay (tools/phone_server.py) and turns it into the same command
 // the keyboard produces, so main.js can add the two together:
 //
-//   const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed) });
+//   const phone = new PhoneInput({
+//     onGrip: (closed) => teleop.setGrip(closed),   // phone pressed Grip
+//     getGrip: () => teleop.gripClosed,             // keeps the phone's button in sync
+//   });
 //   const cmd = addCommands(keys.command(axes), phone.command(axes, dt));
 //
 // The joystick is camera-relative like the keyboard. Tilt is absolute on the
@@ -35,14 +38,16 @@ export function addCommands(a, b) {
 }
 
 export class PhoneInput {
-  constructor({ url = null, onGrip = null, onConnect = null, ...opts } = {}) {
+  constructor({ url = null, onGrip = null, getGrip = null, onConnect = null, ...opts } = {}) {
     this.opts = { ...DEFAULTS, ...opts };
     this.onGrip = onGrip;
+    this.getGrip = getGrip;
     this.onConnect = onConnect;
     this.url = url || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?role=game`;
     this.intent = ZERO;
     this.lastAt = 0;
-    this.grip = null;
+    this.grip = null;          // grip state as last agreed with the phone
+    this._phoneGrip = null;    // grip value in the phone's previous message
     this.phones = 0;
     this.applied = { pitch: 0, roll: 0, center: null };
     this.ws = null;
@@ -64,6 +69,10 @@ export class PhoneInput {
   // axes = view.groundAxes() = { forward: [x, y], right: [x, y] }.
   command(axes, dt = 1 / 60) {
     const o = this.opts;
+    if (this.getGrip && this.connected) {
+      const g = !!this.getGrip();
+      if (g !== this.grip) this.syncGrip(g); // changed by keyboard or reset
+    }
     const fresh = this.connected && performance.now() - this.lastAt <= o.staleMs;
     const { move, wrist, tilt, center } = fresh ? this.intent : ZERO;
     const f = axes?.forward || [1, 0];
@@ -117,6 +126,7 @@ export class PhoneInput {
     ws.onclose = () => {
       const had = this.phones;
       this.phones = 0;
+      this.grip = this._phoneGrip = null;
       if (had) this._emit('peers');
       setTimeout(() => this._connect(), this._retry);
       this._retry = Math.min(this._retry * 2, 10000);
@@ -127,9 +137,14 @@ export class PhoneInput {
       if (m.t === 'intent') {
         this.intent = { ...ZERO, ...m };
         this.lastAt = performance.now();
-        if (typeof m.grip === 'boolean' && m.grip !== this.grip) {
-          this.grip = m.grip;
-          this.onGrip?.(m.grip);
+        // Act on presses only (a change from the phone's previous message), so a
+        // message sent before the phone heard about a keyboard grip can't undo it.
+        if (typeof m.grip === 'boolean') {
+          if (this._phoneGrip !== null && m.grip !== this._phoneGrip) {
+            this.grip = m.grip;
+            this.onGrip?.(m.grip);
+          }
+          this._phoneGrip = m.grip;
         }
         this._emit('change');
       } else if (m.t === 'ping') {
@@ -142,17 +157,18 @@ export class PhoneInput {
           // Phone joined: tell it the current grip so its button starts right.
           if (this.grip !== null) this.syncGrip(this.grip);
         }
-        if (!this.phones) this.grip = null;
+        if (!this.phones) this.grip = this._phoneGrip = null;
         this._emit('peers');
       }
     };
   }
 
   // Small corner card: QR code + address to open on the phone, then live status.
-  async showBadge(parent = document.body) {
+  async showBadge(parent = document.body, { right = 16, bottom = 16 } = {}) {
     const el = document.createElement('div');
     el.className = 'phone-badge';
-    el.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:20;background:rgba(20,23,28,.92);'
+    el.style.cssText = `position:fixed;right:${right}px;bottom:${bottom}px;z-index:20;`
+      + 'background:rgba(20,23,28,.92);'
       + 'color:#e8ecf1;border:1px solid #333a45;border-radius:12px;padding:10px 12px;'
       + 'font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:220px;';
     parent.appendChild(el);
@@ -166,7 +182,7 @@ export class PhoneInput {
     let qrSvg = '';
     if (info?.phone_url) {
       try {
-        const { default: qrcode } = await import('../phone/vendor/qrcode.js');
+        const { default: qrcode } = await import('../vendor/qrcode/qrcode.js');
         const qr = qrcode(0, 'M');
         qr.addData(info.phone_url);
         qr.make();

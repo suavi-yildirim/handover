@@ -63,7 +63,9 @@
   }
   .active .knob { background: var(--accent); border-color: var(--accent); }
   .tick { position: absolute; font-size: 11px; color: var(--muted); pointer-events: none; }
-  #move { grid-area: move; }
+  #move { grid-area: move; justify-items: start; padding-left: 4vw; }
+  @media (orientation: portrait) { #move { justify-items: center; padding-left: 0; } }
+  #grip { min-width: 120px; }
   #lift { grid-area: lift; }
   #grip {
     grid-area: grip; min-height: 76px; font-size: 20px; font-weight: 600; border-radius: 16px;
