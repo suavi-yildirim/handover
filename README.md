@@ -33,8 +33,8 @@ checks and scoring, episode logging, and one trained policy that plays the level
 Build order:
 
 1. ✅ Arm in a browser kitchen scene, keyboard-controlled.
-2. ✅ Success check + score, the first playable demo ([task definitions](docs/tasks.md)).
-3. Phone control.
+2. ✅ Success check + score, the first playable demo. All three MVP tasks are in ([task definitions](docs/tasks.md)).
+3. ✅ Phone control.
 4. Episode logging (✅ recording in the game), training pipeline, and the model playing the level.
 
 ## Play it
@@ -58,14 +58,16 @@ Then open <http://localhost:8000>.
 | Space | open / close the gripper |
 | Shift | slow, precise moves |
 | R | reset the level |
-| 1 / 2 | switch task |
+| 1 / 2 / 3 | switch task |
 | Mouse | orbit and zoom the camera |
 
-Pick a task in the task panel (or press 1 or 2):
+Pick a task in the task panel (or press 1, 2 or 3):
 
 1. **Put the cup on the tray**: pick up the blue cup and set it down upright on the green tray.
 2. **Bring the medication**: hold the orange medicine bottle still and upright inside the
    pink hand zone so a person can take it. Approach slowly.
+3. **Tidy a fall hazard**: lift the glasses case off the red strip at the table edge and set
+   it down flat in the green safe spot.
 
 For task 1: The panel on the
 left shows which success checks are met; when all hold, you get a score out of 100 for
@@ -114,10 +116,11 @@ episode is in `tests/fixtures/`.
 ```sh
 node tests/pick_place.mjs
 node tests/medication.mjs
+node tests/fall_hazard.mjs
 ```
 
 Runs the game's own simulation and control code headlessly and checks that a scripted
-player can complete each task (cup on the tray, medication handover), get a success and a
+player can complete each task (cup on the tray, medication handover, fall hazard), get a success and a
 score, and record a clean 30 fps episode. Needs Node 18+.
 
 ## Project layout
@@ -138,7 +141,7 @@ web/
     main.js             game loop and HUD
   phone/                phone controller page (joystick, tilt, Grip) + demo.html
   models/
-    kitchen.xml         level 1: kitchen table, cup, tray, medicine bottle
+    kitchen.xml         level 1: kitchen table, cup, tray, medicine bottle, glasses case
     so101/              SO-101 arm (MuJoCo Menagerie, Apache-2.0)
   vendor/               MuJoCo WASM 3.16.0 and three.js 0.186.1, pinned
 tools/
@@ -147,6 +150,8 @@ tests/
   harness.mjs           shared headless test setup
   pick_place.mjs        task 1: pick-and-place, scoring and recording check
   medication.mjs        task 2: handover check
+  fall_hazard.mjs       task 3: fall-hazard check
+  fixtures/             one scripted episode per task, for the training pipeline
 docs/
   tasks.md              success predicates and score weights for each task
 CLAUDE.md               full product and technical context

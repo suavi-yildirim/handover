@@ -22,7 +22,7 @@ async function main() {
   const recorder = new Recorder(sim, teleop, { level: LEVEL });
 
   const reset = () => {
-    if (recorder.current) recorder.finish({ success: false, reason: 'reset before finishing' });
+    if (recorder.current) recorder.finish({ success: false, reason: 'reset before finishing' }, task.events);
     sim.reset(); teleop.reset(); task.reset();
     recorder.start(task);
     $('result').hidden = true;
@@ -75,7 +75,7 @@ async function main() {
 
     task.update();
     if (task.state !== 'playing' && recorder.current) {
-      recorder.finish(task.result);
+      recorder.finish(task.result, task.events);
       showEpisodes(recorder);
     }
     view.draw(teleop.target);

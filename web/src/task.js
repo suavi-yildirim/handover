@@ -44,6 +44,7 @@ class Task {
     this.drops = 0;
     this.samples = []; // [simTime, x, y, z] of the grasp point
     this.result = null;
+    this.events = []; // [simTime, type] for grasp / release / drop / success / fail, logged with the episode
     this.checks = Object.fromEntries(Object.keys(this.checkLabels).map((k) => [k, false]));
   }
 
@@ -89,6 +90,7 @@ class Task {
     };
     s.dropped = this.held && !s.held && !s.supported && p[2] > DROP_HEIGHT;
     if (s.dropped) this.drops++;
+    if (s.held !== this.held) this.events.push([this.sim.time, s.dropped ? 'drop' : s.held ? 'grasp' : 'release']);
     this.held = s.held;
 
     const last = this.samples[this.samples.length - 1];
@@ -102,6 +104,7 @@ class Task {
   }
 
   fail(reason) {
+    this.events.push([this.sim.time, 'fail']);
     this.state = 'failed';
     this.result = { success: false, score: 0, reason };
   }
@@ -134,6 +137,7 @@ class Task {
   }
 
   succeed() {
+    this.events.push([this.sim.time, 'success']);
     this.state = 'success';
     const { metrics, raw } = this.metrics();
     let score = 0;
@@ -238,4 +242,59 @@ export class MedicationTask extends Task {
   }
 }
 
-export const TASKS = [CupOnTrayTask, MedicationTask];
+// Tidy a fall hazard: move the glasses case from the table edge on the person's side
+// to the safe zone at the back of the table. Lift it; don't push it across the table.
+export class FallHazardTask extends Task {
+  constructor(sim, ik) {
+    super(sim, ik, 'glasses_case');
+    this.id = 'tidy_fall_hazard';
+    this.title = 'Tidy a fall hazard';
+    this.instruction = 'Move the glasses case away from the table edge to the safe spot.';
+    this.hint = 'The glasses case sits on the red edge strip, where the person could knock it off. Lift it and set it down flat in the green safe spot.';
+    this.checkLabels = { inSafeZone: 'In the safe spot', flat: 'Lying flat', released: 'Gripper let go', settled: 'Resting still' };
+    this.metricLabels = { time: 'Speed', smoothness: 'Smooth motion', gentleness: 'No bumps', carried: 'Lifted, not pushed', drops: 'No drops' };
+    this.weights = { time: 0.15, smoothness: 0.2, gentleness: 0.25, carried: 0.25, drops: 0.15 };
+    this.holdTime = 0.5;
+    const { model } = sim;
+    this.safe = sim.id('GEOM', 'safe_zone');
+    this.safeSize = [model.geom_size[3 * this.safe], model.geom_size[3 * this.safe + 1]];
+    this.reset();
+  }
+
+  reset() {
+    super.reset();
+    this.lastXY = null;
+    this.pathTotal = 0;   // horizontal distance the case traveled
+    this.pathCarried = 0; // ... of which while held off the table
+  }
+
+  evaluate(s) {
+    const p = s.pos, c = this.checks;
+    if (p[2] < -0.05) return 'The glasses case fell off the table.';
+    if (this.lastXY) {
+      const d = Math.hypot(p[0] - this.lastXY[0], p[1] - this.lastXY[1]);
+      this.pathTotal += d;
+      if (s.held && !s.supported) this.pathCarried += d;
+    }
+    this.lastXY = [p[0], p[1]];
+    const z = this.sim.data.geom_xpos.subarray(3 * this.safe, 3 * this.safe + 3);
+    c.inSafeZone = Math.abs(p[0] - z[0]) < this.safeSize[0] && Math.abs(p[1] - z[1]) < this.safeSize[1];
+    // Resting on its base (or upside down) on the table: low, and its short axis vertical.
+    c.flat = p[2] < 0.01 && Math.abs(s.upCos) > Math.cos((15 * Math.PI) / 180);
+    c.released = !s.touching;
+    c.settled = s.speed < 0.02;
+    return null;
+  }
+
+  metrics() {
+    const { metrics, raw } = this.commonMetrics();
+    const carried = this.pathTotal > 0.01 ? this.pathCarried / this.pathTotal : 1;
+    metrics.carried = clamp01((carried - 0.5) / 0.4);   // full marks when 90% of the path is carried, zero at 50%
+    metrics.drops = clamp01(1 - 0.5 * this.drops);
+    raw.pathTotal = this.pathTotal;
+    raw.carriedFraction = carried;
+    return { metrics, raw };
+  }
+}
+
+export const TASKS = [CupOnTrayTask, MedicationTask, FallHazardTask];

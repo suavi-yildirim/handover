@@ -5,6 +5,7 @@
 import { ROBOT } from './robot.js';
 
 export const FORMAT_VERSION = 1;
+export const GAME_VERSION = '0.3.0';
 export const FPS = 30;
 
 const round = (x) => Math.round(x * 1e6) / 1e6;
@@ -16,6 +17,18 @@ function uuid() {
     const r = (Math.random() * 16) | 0;
     return (c === 'x' ? r : (r & 3) | 8).toString(16);
   });
+}
+
+// A random id per browser so a contributor's episodes can be grouped (for reputation
+// and data-value tracking) without knowing who they are.
+function contributorId() {
+  try {
+    let id = localStorage.getItem('handover.contributor');
+    if (!id) localStorage.setItem('handover.contributor', (id = uuid()));
+    return id;
+  } catch {
+    return null;
+  }
 }
 
 export class Recorder {
@@ -41,6 +54,10 @@ export class Recorder {
       episode_id: uuid(),
       started_at: new Date().toISOString(),
       inputs: [], // input devices used during the episode, e.g. ['keyboard', 'phone']
+      contributor_id: contributorId(),
+      game_version: GAME_VERSION,
+      mujoco_version: this.sim.mj.mj_versionString(),
+      scene_seed: null, // no scene randomization yet
       success: false,
       score: 0,
       metrics: {},
@@ -77,13 +94,15 @@ export class Recorder {
   }
 
   // End the episode with the task's result (or why it ended early) and keep it.
-  finish(result) {
+  // events: the task's [simTime, type] list (grasp, release, drop, success, fail).
+  finish(result, events = []) {
     const ep = this.current;
     this.current = null;
     if (!ep || ep.frames.time.length < FPS) return null; // ignore sub-second fragments
     ep.success = !!result.success;
     ep.score = result.score ?? 0;
     ep.metrics = { ...(result.metrics || {}), raw: result.raw, reason: result.reason };
+    ep.events = events.map(([t, type]) => ({ t: round(t), type }));
     this.episodes.push(ep);
     return ep;
   }

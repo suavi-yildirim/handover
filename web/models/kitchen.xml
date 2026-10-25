@@ -21,6 +21,9 @@
     <material name="pills" rgba="0.95 0.55 0.15 1"/>
     <material name="pills_cap" rgba="0.95 0.95 0.95 1"/>
     <material name="hand_zone" rgba="0.95 0.35 0.45 0.25"/>
+    <material name="glasses_case" rgba="0.18 0.18 0.22 1"/>
+    <material name="edge_zone" rgba="0.95 0.25 0.15 0.4"/>
+    <material name="safe_zone" rgba="0.2 0.8 0.4 0.4"/>
   </asset>
 
   <default>
@@ -79,6 +82,22 @@
       <geom name="pill_bottle_cap" type="cylinder" size="0.016 0.006" pos="0 0 0.066" material="pills_cap" class="prop"/>
     </body>
 
+    <!-- Glasses case (for the "tidy a fall hazard" task): a hard-shell case, 14 x 4 x 3.6 cm,
+         ABS shell 45 g, left near the table edge on the person's side, where an elbow or a
+         sleeve could knock it to the floor. Its long side points at the robot so the jaws
+         close across its 4 cm width. -->
+    <body name="glasses_case" pos="0.16 0.31 0" quat="0.825871 0 0 0.563858">
+      <freejoint name="glasses_case_free"/>
+      <inertial pos="0 0 0.018" mass="0.045" diaginertia="1.1e-5 7.8e-5 7.9e-5"/>
+      <geom name="glasses_case_body" type="box" size="0.07 0.02 0.018" pos="0 0 0.018" material="glasses_case" class="prop"/>
+    </body>
+
+    <!-- Table zones for the fall-hazard task, drawn on the table top. Visual only. -->
+    <geom name="edge_zone" type="box" size="0.35 0.1 0.0005" pos="0.15 0.35 0.0005" material="edge_zone"
+          contype="0" conaffinity="0" group="1"/>
+    <geom name="safe_zone" type="box" size="0.06 0.05 0.0005" pos="0.05 -0.25 0.0005" material="safe_zone"
+          contype="0" conaffinity="0" group="1"/>
+
     <!-- Where the (future) person's hand waits for a handover. Visual only. -->
     <site name="hand_zone" type="sphere" size="0.04" pos="0.12 0.28 0.12" material="hand_zone"/>
 
@@ -96,7 +115,8 @@
     <key name="ready"
          qpos="0 -0.9 0.9 1.0 1.5708 0.9
                0.22 0.10 0 1 0 0 0
-               0.27 -0.02 0 1 0 0 0"
+               0.27 -0.02 0 1 0 0 0
+               0.16 0.31 0 0.825871 0 0 0.563858"
          ctrl="0 -0.9 0.9 1.0 1.5708 0.9"/>
   </keyframe>
 </mujoco>

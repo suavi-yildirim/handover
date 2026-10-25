@@ -33,7 +33,7 @@ export async function setup(taskId) {
     teleop.apply(dt);
     for (lag += dt; lag >= sim.dt; lag -= sim.dt) { sim.step(); recorder.update(); }
     task.update();
-    if (task.state !== 'playing' && recorder.current) recorder.finish(task.result);
+    if (task.state !== 'playing' && recorder.current) recorder.finish(task.result, task.events);
   }
   // Move the target in a straight line at `speed` m/s, then hold.
   function moveTo(pos, { hold = 0.6, speed = 0.12 } = {}) {

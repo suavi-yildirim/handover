@@ -77,7 +77,48 @@ The episode **fails** if the bottle is let go while more than 3 cm up and unsupp
 
 A scripted demo with a 4 cm/s final approach scores about 94 (`node tests/medication.mjs`).
 
-## Planned tasks
+## Task 3: Tidy a fall hazard (kitchen)
 
-3. **Tidy a fall hazard**: move an object off the floor or walkway to a safe place. Needs
-   a new object in the scene, so it waits for the kitchen realism work to land.
+Task id `tidy_fall_hazard`, policy prompt "Move the glasses case away from the table edge
+to the safe spot." A glasses case (14 × 4 × 3.6 cm, 45 g) lies on the red edge strip on
+the person's side of the table, where an elbow or sleeve could knock it to the floor. The
+player lifts it and sets it down flat in the green safe spot at the back of the table.
+(A table-mounted SO-101 can't reach the floor, so the hazard is on the table edge.)
+
+### Success
+
+All of these must hold continuously for **0.5 s**:
+
+| Predicate | Definition |
+|---|---|
+| In the safe spot | Case center within the safe zone (12 × 10 cm) |
+| Lying flat | Case origin below 1 cm and its short axis within 15° of vertical |
+| Gripper let go | No contact between the case and either jaw |
+| Resting still | Case linear speed below 2 cm/s |
+
+The episode **fails** if the case falls off the table.
+
+### Score (0–100, only on success)
+
+| Metric | Weight | Formula | Why it matters for data |
+|---|---|---|---|
+| Speed | 0.15 | as task 1 | |
+| Smooth motion | 0.20 | as task 1 | |
+| No bumps | 0.25 | as task 1 | |
+| Lifted, not pushed | 0.25 | share of the case's horizontal path traveled while held off the table: full marks at 90%, zero at 50% | Pushing things across a table is a poor, unsafe strategy to teach |
+| No drops | 0.15 | as task 1 | |
+
+A scripted demo scores about 87 (`node tests/fall_hazard.mjs`); its smoothness is lower
+because the carry swings the arm past its base.
+
+## Episode tags and events
+
+Each recorded episode also carries `contributor_id` (random, per browser), `inputs`,
+`game_version`, `mujoco_version`, `scene_seed` (null until scenes are randomized), and an
+`events` list of `{t, type}` with type `grasp`, `release`, `drop`, `success`, or `fail`.
+
+## Ideas not in the score yet
+
+From the research thread: path-length efficiency, partial credit for failed attempts,
+handover form for task 2 (release only once the person holds the load), peak contact
+force, and a robot-feasibility gate.
