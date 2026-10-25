@@ -15,13 +15,19 @@
     #title h1 { margin: 0; font-size: 18px; }
     #title p { margin: 2px 0 0; opacity: 0.7; }
     #help { top: 16px; right: 16px; display: grid; gap: 4px; font-size: 13px; }
-    #help div { display: flex; gap: 10px; align-items: center; }
+    #help-keys { display: grid; gap: 4px; }
+    #help-keys div { display: flex; gap: 10px; align-items: center; }
+    #spacemouse { margin-top: 6px; padding: 5px; border: 1px solid #c9d1d6; border-radius: 6px; background: #fff;
+      cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
+    #spacemouse:hover { border-color: var(--accent); }
     kbd { min-width: 64px; display: inline-block; text-align: center; padding: 1px 6px; border-radius: 5px;
       background: #fff; border: 1px solid #c9d1d6; font: 12px ui-monospace, Menlo, monospace; }
     #status { bottom: 16px; left: 16px; right: 16px; font: 12px ui-monospace, Menlo, monospace; }
     #loading { top: 50%; left: 50%; transform: translate(-50%, -50%); }
     #task { top: 96px; left: 16px; width: 260px; }
     #task h2 { margin: 0 0 4px; font-size: 15px; display: flex; justify-content: space-between; }
+    #task-select { font: inherit; font-weight: 700; border: 0; background: transparent; color: var(--ink);
+      padding: 0; margin-left: -2px; max-width: 200px; cursor: pointer; }
     #task-time { font: 13px ui-monospace, Menlo, monospace; opacity: 0.7; }
     #task p { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
     #task ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
@@ -33,6 +39,9 @@
     #result .score span { font-size: 18px; opacity: 0.6; color: var(--ink); }
     #result table { margin: 8px auto; border-collapse: collapse; font-size: 13px; text-align: left; }
     #result td { padding: 2px 6px; }
+    #download { margin-top: 10px; width: 100%; padding: 6px; border: 1px solid #c9d1d6; border-radius: 6px;
+      background: #fff; cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
+    #download:hover { border-color: var(--accent); }
     .dim { opacity: 0.65; font-size: 13px; }
     @media (max-width: 700px) { #help { display: none; } #task { top: auto; bottom: 64px; } }
   </style>
@@ -41,12 +50,16 @@
   <canvas id="view"></canvas>
   <div id="title" class="panel"><h1>Handover</h1><p>Kitchen · teach the robot to care</p></div>
   <div id="task" class="panel">
-    <h2><span id="task-title"></span><span id="task-time"></span></h2>
+    <h2><select id="task-select" aria-label="Task"></select><span id="task-time"></span></h2>
     <p id="task-hint"></p>
     <ul id="task-checks"></ul>
+    <button id="download" hidden></button>
   </div>
   <div id="result" class="panel" hidden></div>
-  <div id="help" class="panel"></div>
+  <div id="help" class="panel">
+    <div id="help-keys"></div>
+    <button id="spacemouse" hidden title="Chrome or Edge: pick your SpaceMouse in the browser's device list"></button>
+  </div>
   <div id="status" class="panel">Loading…</div>
   <div id="loading" class="panel">Loading physics and robot model…</div>
   <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>

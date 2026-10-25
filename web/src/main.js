@@ -4,7 +4,9 @@ import { Renderer } from './render.js';
 import { Keyboard, KEY_HELP } from './keyboard.js';
 import { ROBOT } from './robot.js';
 import { PhoneInput, addCommands } from './phone.js';
-import { CupOnTrayTask, WEIGHTS } from './task.js';
+import { SpaceMouseInput } from './spacemouse.js';
+import { TASKS } from './task.js';
+import { Recorder } from './recorder.js';
 
 const LEVEL = 'models/kitchen.xml';
 const MAX_STEPS_PER_FRAME = 50; // don't spiral if a frame takes too long
@@ -15,20 +17,56 @@ async function main() {
   const sim = await Sim.create(LEVEL);
   const teleop = new Teleop(sim);
   const view = new Renderer($('view'), sim);
-  const task = new CupOnTrayTask(sim, teleop.ik);
+  const tasks = TASKS.map((T) => new T(sim, teleop.ik));
+  let task = tasks[Math.min(tasks.length - 1, Math.max(0, Number(load('handover.task')) || 0))];
 
-  const reset = () => { sim.reset(); teleop.reset(); task.reset(); $('result').hidden = true; };
+  const recorder = new Recorder(sim, teleop, { level: LEVEL });
+
+  const reset = () => {
+    if (recorder.current) recorder.finish({ success: false, reason: 'reset before finishing' }, task.events);
+    sim.reset(); teleop.reset(); task.reset();
+    recorder.start(task);
+    $('result').hidden = true;
+    shownState = null;
+    showEpisodes(recorder);
+  };
+  const selectTask = (i) => {
+    task = tasks[i];
+    save('handover.task', String(i));
+    $('task-select').value = String(i);
+    $('task-hint').textContent = task.hint;
+    window.handover.task = task;
+    reset();
+  };
+  recorder.start(task);
+  $('download').addEventListener('click', (e) => { recorder.download(); e.currentTarget.blur(); });
   const keys = new Keyboard({ onToggleGrip: () => teleop.toggleGrip(), onReset: reset });
+  window.addEventListener('keydown', (e) => {
+    const i = Number(e.key) - 1;
+    if (i >= 0 && i < tasks.length && !e.repeat) selectTask(i);
+  });
   const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed), getGrip: () => teleop.gripClosed });
   phone.showBadge(document.body, { bottom: 64 });
+  const spacemouse = new SpaceMouseInput({ onToggleGrip: () => teleop.toggleGrip() });
+  const smButton = $('spacemouse');
+  spacemouse.onChange = () => {
+    smButton.textContent = spacemouse.connected
+      ? `✓ ${spacemouse.name}${spacemouse.fine ? ' · precise' : ''}`
+      : 'Connect 3D mouse';
+  };
+  spacemouse.onChange();
+  smButton.hidden = !spacemouse.supported;
+  smButton.addEventListener('click', (e) => { spacemouse.connect().catch(console.error); e.currentTarget.blur(); });
 
-  $('task-title').textContent = task.title;
+  $('task-select').innerHTML = tasks.map((t, i) => `<option value="${i}">${i + 1}. ${t.title}</option>`).join('');
+  $('task-select').value = String(tasks.indexOf(task));
+  $('task-select').addEventListener('change', (e) => { selectTask(Number(e.target.value)); e.target.blur(); });
   $('task-hint').textContent = task.hint;
-  $('help').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
+  $('help-keys').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
   $('loading').remove();
 
   // Exposed for debugging and automated tests.
-  window.handover = { sim, teleop, view, keys, phone, task, reset };
+  window.handover = { sim, teleop, view, keys, phone, spacemouse, task, recorder, reset };
 
   let last = performance.now(), simLag = 0, fps = 0, frames = 0, fpsT = last;
   function frame(now) {
@@ -36,15 +74,22 @@ async function main() {
     last = now;
 
     const axes = view.groundAxes();
-    teleop.command(addCommands(keys.command(axes), phone.command(axes, dt)), dt);
+    teleop.command(addCommands(addCommands(keys.command(axes), phone.command(axes, dt)), spacemouse.command(axes)), dt);
+    if (keys.active) recorder.noteInput('keyboard');
+    if (phone.active) recorder.noteInput('phone');
+    if (spacemouse.active) recorder.noteInput('spacemouse');
     teleop.apply(dt);
 
     simLag += dt;
     let n = 0;
-    while (simLag >= sim.dt && n < MAX_STEPS_PER_FRAME) { sim.step(); simLag -= sim.dt; n++; }
+    while (simLag >= sim.dt && n < MAX_STEPS_PER_FRAME) { sim.step(); recorder.update(); simLag -= sim.dt; n++; }
     if (n === MAX_STEPS_PER_FRAME) simLag = 0;
 
     task.update();
+    if (task.state !== 'playing' && recorder.current) {
+      recorder.finish(task.result, task.events);
+      showEpisodes(recorder);
+    }
     view.draw(teleop.target);
     showTask(task);
 
@@ -62,13 +107,11 @@ async function main() {
   requestAnimationFrame(frame);
 }
 
-const CHECK_LABELS = { onTray: 'Cup on the tray', upright: 'Upright', released: 'Gripper let go', settled: 'Resting still' };
-const METRIC_LABELS = { time: 'Speed', smoothness: 'Smooth motion', gentleness: 'No bumps', spill: 'Kept level', drops: 'No drops' };
 let shownState = null;
 
 function showTask(task) {
   $('task-time').textContent = `${task.time.toFixed(1)} s`;
-  $('task-checks').innerHTML = Object.entries(CHECK_LABELS)
+  $('task-checks').innerHTML = Object.entries(task.checkLabels)
     .map(([k, label]) => `<li class="${task.checks[k] ? 'ok' : ''}">${label}</li>`).join('');
   if (task.state === shownState) return;
   shownState = task.state;
@@ -79,23 +122,27 @@ function showTask(task) {
     $('result').innerHTML = `<h2>Try again</h2><p>${r.reason}</p><p class="dim">Press <kbd>R</kbd> to reset.</p>`;
     return;
   }
-  const best = bestScore(r.score);
-  const rows = Object.entries(METRIC_LABELS).map(([k, label]) =>
+  const best = bestScore(task.id, r.score);
+  const rows = Object.entries(task.metricLabels).map(([k, label]) =>
     `<tr><td>${label}</td><td><meter min="0" max="1" value="${r.metrics[k]}"></meter></td>` +
-    `<td>${Math.round(100 * r.metrics[k])}</td><td class="dim">×${WEIGHTS[k]}</td></tr>`).join('');
+    `<td>${Math.round(100 * r.metrics[k])}</td><td class="dim">×${task.weights[k]}</td></tr>`).join('');
   $('result').innerHTML =
     `<h2>Task complete</h2><div class="score">${r.score}<span>/100</span></div>` +
-    `<p class="dim">${task.time.toFixed(1)} s · ${r.raw.bumps} bumps · max tilt ${r.raw.maxCarryTiltDeg.toFixed(0)}°` +
-    ` · best ${best}</p><table>${rows}</table><p class="dim">Press <kbd>R</kbd> to play again.</p>`;
+    `<p class="dim">${task.time.toFixed(1)} s · ${r.raw.bumps} bumps · best ${best}</p>` +
+    `<table>${rows}</table><p class="dim">Press <kbd>R</kbd> to play again.</p>`;
 }
 
-// Best score is a per-browser convenience; storage may be unavailable.
-function bestScore(score) {
-  let best = score;
-  try {
-    best = Math.max(score, Number(localStorage.getItem('handover.best.cupOnTray')) || 0);
-    localStorage.setItem('handover.best.cupOnTray', String(best));
-  } catch { /* ignore */ }
+function showEpisodes(recorder) {
+  $('download').hidden = recorder.count === 0;
+  $('download').textContent = `Download ${recorder.count} episode${recorder.count === 1 ? '' : 's'}`;
+}
+
+// Best scores and the chosen task are per-browser conveniences; storage may be unavailable.
+function load(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function save(key, value) { try { localStorage.setItem(key, value); } catch { /* ignore */ } }
+function bestScore(taskId, score) {
+  const best = Math.max(score, Number(load(`handover.best.${taskId}`)) || 0);
+  save(`handover.best.${taskId}`, String(best));
   return best;
 }
 

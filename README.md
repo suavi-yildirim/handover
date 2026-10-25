@@ -33,9 +33,9 @@ checks and scoring, episode logging, and one trained policy that plays the level
 Build order:
 
 1. ✅ Arm in a browser kitchen scene, keyboard-controlled.
-2. ✅ Success check + score, the first playable demo ([task definitions](docs/tasks.md)).
-3. Phone control.
-4. Episode logging, training pipeline, and the model playing the level.
+2. ✅ Success check + score, the first playable demo. All three MVP tasks are in ([task definitions](docs/tasks.md)).
+3. ✅ Phone control.
+4. Episode logging (✅ recording in the game), training pipeline, and the model playing the level.
 
 ## Play it
 
@@ -58,9 +58,18 @@ Then open <http://localhost:8000>.
 | Space | open / close the gripper |
 | Shift | slow, precise moves |
 | R | reset the level |
+| 1 / 2 / 3 | switch task |
 | Mouse | orbit and zoom the camera |
 
-Task: pick up the blue cup and set it down upright on the green tray. The panel on the
+Pick a task in the task panel (or press 1, 2 or 3):
+
+1. **Put the cup on the tray**: pick up the blue cup and set it down upright on the green tray.
+2. **Bring the medication**: hold the orange medicine bottle still and upright inside the
+   pink hand zone so a person can take it. Approach slowly.
+3. **Tidy a fall hazard**: lift the glasses case off the red strip at the table edge and set
+   it down flat in the green safe spot.
+
+For task 1: The panel on the
 left shows which success checks are met; when all hold, you get a score out of 100 for
 speed, smooth motion, no bumps, keeping the cup level, and no drops. Tip: lower the open
 gripper around the cup with E/Q, press Space to grip, lift, move over the tray, lower,
@@ -105,14 +114,47 @@ Keyboard and phone work at the same time. The arm stops if the phone locks, swit
 or drops off Wi-Fi. `http://localhost:8000/phone/demo.html` shows what the phone sends
 without the robot, for checking the connection.
 
+### Control with a 3D mouse
+
+A 3Dconnexion SpaceMouse works in **Chrome or Edge** (they support WebHID; Safari doesn't).
+Click **Connect 3D mouse** under the key list and pick the device once; the page reconnects
+to it after that. If it doesn't show up or doesn't respond on a Mac, quit the 3Dconnexion
+driver app (3DxWare) so the browser can open the device.
+
+| 3D mouse | Action |
+|---|---|
+| Push / pull the cap | gripper forward / back (relative to the camera) |
+| Slide the cap left / right | gripper left / right |
+| Lift / press the cap | up / down |
+| Tilt the cap forward / back | tilt the gripper |
+| Twist the cap | roll the wrist |
+| Left button | open / close the gripper |
+| Right button | precise (slow) mode on / off |
+
+Keyboard, phone and 3D mouse all work at the same time.
+
+### Recording episodes
+
+Every attempt is recorded as an episode: the full simulator state 30 times per second
+(sim-native units), what the player was steering toward, and the task result and score.
+When at least one episode has finished, a **Download episodes** button appears in the task
+panel. It saves all episodes from this session as one `.jsonl.gz` file (one episode per
+line) for the training pipeline, which renders camera views and writes a LeRobot dataset.
+Episodes stay in the page until downloaded, so download before closing the tab. A sample
+episode is in `tests/fixtures/`.
+
 ## Tests
 
 ```sh
 node tests/pick_place.mjs
+node tests/medication.mjs
+node tests/fall_hazard.mjs
+node tests/spacemouse.mjs
 ```
 
 Runs the game's own simulation and control code headlessly and checks that a scripted
-player can pick up the cup, place it upright on the tray, and get a success and a score. Needs Node 18+.
+player can complete each task (cup on the tray, medication handover, fall hazard), get a success and a
+score, and record a clean 30 fps episode. Needs Node 18+.
 
 ## Project layout
 
@@ -125,19 +167,25 @@ web/
     ik.js               end-effector inverse kinematics (damped least squares)
     teleop.js           turns "move the gripper" commands into servo targets
     keyboard.js         keyboard input
+    spacemouse.js       3D mouse input (WebHID)
     phone.js            phone input (game side): same commands as the keyboard
     task.js             success predicates and scoring
+    recorder.js         episode recording (30 fps raw sim state)
     render.js           three.js rendering of the MuJoCo scene
     main.js             game loop and HUD
   phone/                phone controller page (motion, joystick, tilt, Grip) + demo.html
   models/
-    kitchen.xml         level 1: kitchen table, cup, tray, medicine bottle
+    kitchen.xml         level 1: kitchen table, cup, tray, medicine bottle, glasses case
     so101/              SO-101 arm (MuJoCo Menagerie, Apache-2.0)
   vendor/               MuJoCo WASM 3.16.0 and three.js 0.186.1, pinned
 tools/
   phone_server.py       local server: HTTP for the Mac, HTTPS + WebSocket relay for the phone
 tests/
-  pick_place.mjs        headless pick-and-place + scoring check
+  harness.mjs           shared headless test setup
+  pick_place.mjs        task 1: pick-and-place, scoring and recording check
+  medication.mjs        task 2: handover check
+  fall_hazard.mjs       task 3: fall-hazard check
+  fixtures/             one scripted episode per task, for the training pipeline
 docs/
   tasks.md              success predicates and score weights for each task
 CLAUDE.md               full product and technical context

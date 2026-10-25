@@ -12,6 +12,7 @@ export const KEY_HELP = [
   ['Space', 'open / close gripper'],
   ['Shift', 'slow, precise moves'],
   ['R', 'reset level'],
+  ['1 2 3', 'switch task'],
   ['Mouse', 'orbit / zoom camera'],
 ];
 

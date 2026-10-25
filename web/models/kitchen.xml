@@ -2,6 +2,9 @@
   <!-- Handover level 1: kitchen. The SO-101 arm sits on the kitchen table.
        Units: meters, kilograms, radians. World z is up; the robot faces +x. -->
   <include file="so101/so101.xml"/>
+  <!-- The room around the table (walls, kitchen units, window, chair, lights). Visual
+       only apart from the floor, and no free bodies, so it does not change qpos. -->
+  <include file="kitchen/room.xml"/>
 
   <compiler meshdir="so101/assets"/>
   <option timestep="0.002"/>
@@ -12,37 +15,32 @@
   </visual>
 
   <asset>
-    <material name="floor" rgba="0.72 0.66 0.58 1"/>
-    <material name="wall" rgba="0.93 0.91 0.86 1"/>
     <material name="wood" rgba="0.62 0.45 0.30 1"/>
-    <material name="counter" rgba="0.85 0.85 0.82 1"/>
     <material name="cup" rgba="0.20 0.55 0.85 1"/>
     <material name="tray" rgba="0.30 0.65 0.45 1"/>
     <material name="pills" rgba="0.95 0.55 0.15 1"/>
     <material name="pills_cap" rgba="0.95 0.95 0.95 1"/>
     <material name="hand_zone" rgba="0.95 0.35 0.45 0.25"/>
+    <material name="glasses_case" rgba="0.18 0.18 0.22 1"/>
+    <material name="edge_zone" rgba="0.95 0.25 0.15 0.4"/>
+    <material name="safe_zone" rgba="0.2 0.8 0.4 0.4"/>
   </asset>
 
   <default>
     <default class="furniture">
-      <geom contype="1" conaffinity="1" condim="3" friction="0.8 0.005 0.0001"/>
+      <!-- Lacquered wood / melamine: Coulomb friction about 0.4 against ceramic or plastic. -->
+      <geom contype="1" conaffinity="1" condim="3" friction="0.4 0.005 0.0001"/>
     </default>
     <default class="prop">
-      <!-- Graspable objects: soft-ish contacts and torsional friction for stable grasps. -->
-      <geom contype="1" conaffinity="1" condim="4" friction="1.0 0.01 0.001" solref="0.01 1"/>
+      <!-- Graspable objects (glazed ceramic, PP plastic): sliding friction 0.35. MuJoCo uses the
+           larger of the two geoms, so props slide on the table at 0.4. The SO-101 jaws have
+           contact priority, so grasps use the jaws' own friction. Torsional friction is about
+           mu * contact radius; rolling resistance of hard objects is small. -->
+      <geom contype="1" conaffinity="1" condim="4" friction="0.35 0.004 0.0001" solref="0.01 1"/>
     </default>
   </default>
 
   <worldbody>
-    <light pos="0.3 -0.4 2.2" dir="-0.1 0.2 -1" directional="false" diffuse="0.7 0.7 0.7" castshadow="true"/>
-    <light pos="-1 1 2.5" dir="0.3 -0.3 -1" directional="true" diffuse="0.3 0.3 0.3" castshadow="false"/>
-
-    <!-- Room -->
-    <geom name="floor" type="plane" size="3 3 0.05" pos="0 0 -0.75" material="floor" class="furniture"/>
-    <geom name="wall_back" type="box" size="0.02 2 1.2" pos="0.9 0 0.45" material="wall" contype="0" conaffinity="0"/>
-    <geom name="wall_side" type="box" size="2 0.02 1.2" pos="0 1.0 0.45" material="wall" contype="0" conaffinity="0"/>
-    <geom name="counter" type="box" size="0.3 0.6 0.45" pos="0.58 0.38 -0.3" material="counter" contype="0" conaffinity="0"/>
-
     <!-- Kitchen table. Top surface is at z = 0 so the robot base and props sit at z = 0. -->
     <body name="table" pos="0.15 0 0">
       <geom name="table_top" type="box" size="0.35 0.45 0.02" pos="0 0 -0.02" material="wood" class="furniture"/>
@@ -62,23 +60,51 @@
       <site name="tray_center" pos="0 0 0.006" size="0.005" rgba="0 0 0 0"/>
     </body>
 
-    <!-- Cup: a small (espresso-size) cup the SO-101 gripper can close around. -->
+    <!-- Cup: a small (espresso-size) porcelain cup the SO-101 gripper can close around.
+         4 cm across, 7 cm tall, 3 mm walls, 5 mm base, porcelain 2300 kg/m^3, plus a 6 g
+         handle: 73 g. The inertial is that of the hollow cup (centre of mass 3.1 cm up),
+         not of a solid cylinder; see tools/kitchen_inertia.py. -->
     <body name="cup" pos="0.22 0.10 0">
       <freejoint name="cup_free"/>
-      <geom name="cup_body" type="cylinder" size="0.02 0.035" pos="0 0 0.035" mass="0.04" material="cup" class="prop"/>
-      <geom name="cup_handle" type="box" size="0.004 0.012 0.015" pos="0 0.024 0.04" mass="0.003" material="cup" class="prop"/>
+      <inertial pos="0 0.002 0.031" mass="0.073" diaginertia="4.6e-5 4.3e-5 2.4e-5"/>
+      <geom name="cup_body" type="cylinder" size="0.02 0.035" pos="0 0 0.035" material="cup" class="prop"/>
+      <geom name="cup_handle" type="box" size="0.004 0.012 0.015" pos="0 0.024 0.04" material="cup" class="prop"/>
       <site name="cup_top" pos="0 0 0.07" size="0.004" rgba="0 0 0 0"/>
     </body>
 
-    <!-- Medicine bottle (for the "bring medication" task). -->
+    <!-- Medicine bottle (for the "bring medication" task): a pharmacy pill vial, 3 cm across,
+         PP plastic with 1.2 mm walls (7 g), 10 g of tablets at the bottom, 3 g cap: 20 g,
+         centre of mass 2.5 cm up. -->
     <body name="pill_bottle" pos="0.27 -0.02 0">
       <freejoint name="pill_bottle_free"/>
-      <geom name="pill_bottle_body" type="cylinder" size="0.015 0.03" pos="0 0 0.03" mass="0.03" material="pills" class="prop"/>
-      <geom name="pill_bottle_cap" type="cylinder" size="0.016 0.006" pos="0 0 0.066" mass="0.003" material="pills_cap" class="prop"/>
+      <inertial pos="0 0 0.025" mass="0.020" diaginertia="1.1e-5 1.1e-5 2.3e-6"/>
+      <geom name="pill_bottle_body" type="cylinder" size="0.015 0.03" pos="0 0 0.03" material="pills" class="prop"/>
+      <geom name="pill_bottle_cap" type="cylinder" size="0.016 0.006" pos="0 0 0.066" material="pills_cap" class="prop"/>
     </body>
+
+    <!-- Glasses case (for the "tidy a fall hazard" task): a hard-shell case, 14 x 4 x 3.6 cm,
+         ABS shell 45 g, left near the table edge on the person's side, where an elbow or a
+         sleeve could knock it to the floor. Its long side points at the robot so the jaws
+         close across its 4 cm width. -->
+    <body name="glasses_case" pos="0.16 0.31 0" quat="0.825871 0 0 0.563858">
+      <freejoint name="glasses_case_free"/>
+      <inertial pos="0 0 0.018" mass="0.045" diaginertia="1.1e-5 7.8e-5 7.9e-5"/>
+      <geom name="glasses_case_body" type="box" size="0.07 0.02 0.018" pos="0 0 0.018" material="glasses_case" class="prop"/>
+    </body>
+
+    <!-- Table zones for the fall-hazard task, drawn on the table top. Visual only. -->
+    <geom name="edge_zone" type="box" size="0.35 0.1 0.0005" pos="0.15 0.35 0.0005" material="edge_zone"
+          contype="0" conaffinity="0" group="1"/>
+    <geom name="safe_zone" type="box" size="0.06 0.05 0.0005" pos="0.05 -0.25 0.0005" material="safe_zone"
+          contype="0" conaffinity="0" group="1"/>
 
     <!-- Where the (future) person's hand waits for a handover. Visual only. -->
     <site name="hand_zone" type="sphere" size="0.04" pos="0.12 0.28 0.12" material="hand_zone"/>
+
+    <!-- Dataset scene camera (observation.images.front): from the robot's right, looking
+         down at the table so the cup, tray, bottle and hand zone are all in view.
+         The wrist camera is wrist_cam in so101.xml. -->
+    <camera name="front" pos="0.12 -0.55 0.5" xyaxes="0.997 -0.083 0 0.053 0.637 0.769" fovy="60"/>
 
     <!-- Default play camera: behind and above the robot, looking along +x. -->
     <camera name="play" pos="-0.35 0 0.38" xyaxes="0 -1 0 0.6 0 0.8" fovy="50"/>
@@ -89,7 +115,8 @@
     <key name="ready"
          qpos="0 -0.9 0.9 1.0 1.5708 0.9
                0.22 0.10 0 1 0 0 0
-               0.27 -0.02 0 1 0 0 0"
+               0.27 -0.02 0 1 0 0 0
+               0.16 0.31 0 0.825871 0 0 0.563858"
          ctrl="0 -0.9 0.9 1.0 1.5708 0.9"/>
   </keyframe>
 </mujoco>
