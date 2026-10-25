@@ -45,9 +45,16 @@ export async function setup(taskId) {
       frame(dt);
     }
   }
+  // Level-gripper grasp: hover over the object with the jaws open, then lower them around it.
+  // (A level SO-101 gripper reaches low only about 28 cm or more from the shoulder, so a
+  // horizontal slide-in from a standoff is out of reach for objects at about 30 cm.)
+  function reachIn(pos, { above = 0.06 } = {}) {
+    moveTo([pos[0], pos[1], pos[2] + above]);
+    moveTo(pos, { speed: 0.06 });
+  }
   const bodyPos = (n) => { const i = sim.id('BODY', n); return Array.from(sim.data.xpos.slice(3 * i, 3 * i + 3)); };
   const sitePos = (n) => { const i = sim.id('SITE', n); return Array.from(sim.data.site_xpos.slice(3 * i, 3 * i + 3)); };
-  return { sim, teleop, task, recorder, moveTo, bodyPos, sitePos };
+  return { sim, teleop, task, recorder, moveTo, reachIn, bodyPos, sitePos };
 }
 
 // Checks every recorded episode should pass.

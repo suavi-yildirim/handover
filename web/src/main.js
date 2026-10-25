@@ -44,6 +44,7 @@ async function main() {
   window.addEventListener('keydown', (e) => {
     const i = Number(e.key) - 1;
     if (i >= 0 && i < tasks.length && !e.repeat) selectTask(i);
+    if (e.code === 'KeyC' && !e.repeat && view.wrist) view.showWrist = !view.showWrist;
   });
   const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed), getGrip: () => teleop.gripClosed });
   phone.showBadge(document.body, { bottom: 64 });
@@ -64,6 +65,16 @@ async function main() {
   $('task-hint').textContent = task.hint;
   $('help-keys').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
   $('loading').remove();
+
+  const wristLabel = $('wrist-label');
+  function placeWristLabel() {
+    wristLabel.hidden = !view.showWrist;
+    const r = view.wristRect(), css = `${r.x + 6}px,${r.top + 4}px`;
+    if (wristLabel.dataset.at !== css) {
+      wristLabel.dataset.at = css;
+      wristLabel.style.left = `${r.x + 6}px`; wristLabel.style.top = `${r.top + 4}px`;
+    }
+  }
 
   // Exposed for debugging and automated tests.
   window.handover = { sim, teleop, view, keys, phone, spacemouse, task, recorder, reset };
@@ -91,6 +102,7 @@ async function main() {
       showEpisodes(recorder);
     }
     view.draw(teleop.target);
+    placeWristLabel();
     showTask(task);
 
     frames++;
@@ -100,7 +112,7 @@ async function main() {
       `${ROBOT.name} · gripper ${teleop.gripClosed ? 'closed' : 'open'} · ` +
       `target ${t.map((x) => (x * 100).toFixed(1)).join(', ')} cm · ` +
       `tilt ${Math.round((teleop.pitch * 180) / Math.PI)}° · ` +
-      (teleop.ikError > 0.01 ? 'out of reach · ' : '') +
+      (teleop.blocked ? 'out of reach · ' : '') +
       `${fps.toFixed(0)} fps`;
     requestAnimationFrame(frame);
   }

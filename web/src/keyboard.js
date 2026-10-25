@@ -11,6 +11,7 @@ export const KEY_HELP = [
   ['J / L', 'roll wrist'],
   ['Space', 'open / close gripper'],
   ['Shift', 'slow, precise moves'],
+  ['C', 'wrist camera view on / off'],
   ['R', 'reset level'],
   ['1 2 3', 'switch task'],
   ['Mouse', 'orbit / zoom camera'],

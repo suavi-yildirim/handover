@@ -57,9 +57,17 @@ Then open <http://localhost:8000>.
 | J / L | roll the wrist |
 | Space | open / close the gripper |
 | Shift | slow, precise moves |
+| C | show / hide the wrist camera view |
 | R | reset the level |
 | 1 / 2 / 3 | switch task |
 | Mouse | orbit and zoom the camera |
+
+The arm starts with the gripper level and the wrist camera on top, and the small view in
+the corner shows what that camera sees, for lining up grasps. A level gripper reaches low
+objects best about 30 cm out from the robot, so that is where the objects sit. Hover over
+an object with the jaws open, lower them around it, and close. If you steer somewhere the
+arm can't reach at the current tilt, the gripper stops (or slides along the reach limit)
+and the status bar says "out of reach"; tilting the gripper down (I) reaches closer in.
 
 Pick a task in the task panel (or press 1, 2 or 3):
 
