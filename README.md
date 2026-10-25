@@ -66,6 +66,32 @@ speed, smooth motion, no bumps, keeping the cup level, and no drops. Tip: lower 
 gripper around the cup with E/Q, press Space to grip, lift, move over the tray, lower,
 and press Space again to let go.
 
+### Control with your phone
+
+Start the game with the phone server instead of `http.server` (still only Python 3):
+
+```sh
+python3 tools/phone_server.py
+```
+
+Open <http://localhost:8000> on the Mac. A card in the corner shows a QR code; scan it with
+a phone on the same Wi-Fi (or type the `https://…:8443/phone/` address the server prints).
+The first time, the phone warns about the certificate because it is a self-signed one made
+for your Mac: tap *Show Details > visit this website* (iPhone) or *Advanced > Proceed*
+(Android). If macOS asks whether Python may accept incoming connections, allow it.
+
+| Phone | Action |
+|---|---|
+| Left joystick | move the gripper (relative to the camera, like WASD) |
+| Right slider | up / down |
+| Grip | close / open the gripper |
+| Tilt: on | tip the phone away / toward you to tilt the gripper, turn it like a steering wheel to roll the wrist |
+| Recenter | make the current way you hold the phone the neutral pose |
+
+Keyboard and phone work at the same time. The arm stops if the phone locks, switches apps,
+or drops off Wi-Fi. `http://localhost:8000/phone/demo.html` shows what the phone sends
+without the robot, for checking the connection.
+
 ## Tests
 
 ```sh
@@ -86,13 +112,17 @@ web/
     ik.js               end-effector inverse kinematics (damped least squares)
     teleop.js           turns "move the gripper" commands into servo targets
     keyboard.js         keyboard input
+    phone.js            phone input (game side): same commands as the keyboard
     task.js             success predicates and scoring
     render.js           three.js rendering of the MuJoCo scene
     main.js             game loop and HUD
+  phone/                phone controller page (joystick, tilt, Grip) + demo.html
   models/
     kitchen.xml         level 1: kitchen table, cup, tray, medicine bottle
     so101/              SO-101 arm (MuJoCo Menagerie, Apache-2.0)
   vendor/               MuJoCo WASM 3.16.0 and three.js 0.186.1, pinned
+tools/
+  phone_server.py       local server: HTTP for the Mac, HTTPS + WebSocket relay for the phone
 tests/
   pick_place.mjs        headless pick-and-place + scoring check
 docs/
