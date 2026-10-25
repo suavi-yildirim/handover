@@ -34,6 +34,7 @@ line). The converter also accepts `.json` (one episode), `.jsonl` and `.json.gz`
   "game_version": "0.3.0",
   "mujoco_version": "3.16.0",
   "scene_seed": null,
+  "license": "CC-BY-4.0",
   "success": true,
   "score": 95,
   "metrics": {"time": 1, "smoothness": 0.76, "raw": {}, "reason": null},
@@ -53,7 +54,9 @@ line). The converter also accepts `.json` (one episode), `.jsonl` and `.json.gz`
 | `frames.qpos`, `frames.qvel` | full MuJoCo state at that instant (arm, then each free object) |
 | `frames.ctrl` | servo targets being applied at that instant |
 | `success`, `score`, `metrics` | from the task's success check and scoring (`docs/tasks.md`) |
-| `intent`, `events`, `inputs`, ids, versions | extra; the converter ignores them |
+| `license` | `CC-BY-4.0` for all play data; the converter skips episodes without it |
+| `game_version` | scene layout and arm physics change between versions; pick one with `convert.py --game-version` |
+| `intent`, `events`, `inputs`, ids | extra; the converter ignores them |
 
 Task strings: one fixed imperative sentence per `task_id`. The trained policy is prompted
 with exactly this string, so changing it means re-converting.
@@ -67,6 +70,13 @@ with exactly this string, so changing it means re-converting.
 Episodes are only comparable with the scene version they were recorded in: a change that
 adds or removes a free body changes `nq`, and the converter rejects episodes whose state
 size doesn't match the current model.
+
+## License
+
+Recorded play data is released under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
+attribution "Suavi Yildirim and the Handover contributors" (the code is Apache-2.0).
+The converter writes this into the dataset card (`README.md` in the dataset folder, Hub
+license `cc-by-4.0`) and uses it when pushing to the Hugging Face Hub.
 
 ## LeRobot dataset (written by the converter)
 

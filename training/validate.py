@@ -16,6 +16,7 @@ import numpy as np
 
 from handover_train.schema import (
     CAMERAS,
+    DATA_LICENSE,
     FPS,
     MOTOR_NAMES,
     find_raw,
@@ -33,6 +34,7 @@ def check_raw(paths) -> int:
         return 1
     scenes, bad, stats = {}, 0, Counter()
     lengths, scores = [], []
+    versions, licenses = Counter(), Counter()
     for path in files:
         try:
             episodes = load_episodes(path)
@@ -53,6 +55,8 @@ def check_raw(paths) -> int:
                 print(f"FAIL {name}: " + "; ".join(errors))
                 continue
             stats[(ep["task_id"], bool(ep.get("success")))] += 1
+            versions[str(ep.get("game_version", "unknown"))] += 1
+            licenses[str(ep.get("license"))] += 1
             lengths.append(len(ep["frames"]["time"]))
             if ep.get("success"):
                 scores.append(ep.get("score", 0))
@@ -62,6 +66,9 @@ def check_raw(paths) -> int:
         print(f"episode length: {min(lengths)}-{max(lengths)} frames, mean {np.mean(lengths) / FPS:.1f} s")
     if scores:
         print(f"score of successful episodes: min {min(scores)}, mean {np.mean(scores):.0f}, max {max(scores)}")
+    print(f"game versions: {dict(versions)}; licenses: {dict(licenses)}")
+    if licenses.keys() - {DATA_LICENSE}:
+        print(f"note: convert.py skips episodes whose license isn't {DATA_LICENSE}")
     print(f"{sum(stats.values())} valid, {bad} invalid")
     return 1 if bad else 0
 

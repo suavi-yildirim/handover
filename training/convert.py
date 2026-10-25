@@ -18,7 +18,21 @@ import numpy as np
 from tqdm import tqdm
 
 from handover_train.scene import Scene
-from handover_train.schema import FPS, IMAGE_SHAPE, MOTOR_NAMES, ROBOT_TYPE, Units, find_raw, load_episodes, resample, validate_raw
+from handover_train.schema import (
+    ATTRIBUTION,
+    DATA_LICENSE,
+    FPS,
+    HOMEPAGE,
+    HUB_LICENSE,
+    IMAGE_SHAPE,
+    MOTOR_NAMES,
+    ROBOT_TYPE,
+    Units,
+    find_raw,
+    load_episodes,
+    resample,
+    validate_raw,
+)
 
 
 def features(scene: Scene, image_shape) -> dict:
@@ -38,6 +52,39 @@ def features(scene: Scene, image_shape) -> dict:
     return out
 
 
+def write_card(dataset, out: Path, repo_id: str, game_versions: set[str], tasks: set[str]):
+    """Dataset card (README.md) with the license and attribution, saved next to the data
+    and pushed with it."""
+    from lerobot.datasets.utils import create_lerobot_dataset_card
+
+    description = (
+        "Demonstrations recorded in [Handover]({home}), an open-source browser game where players "
+        "teach a simulated SO-101 robot arm everyday care tasks. Camera views are rendered from the "
+        "recorded simulator state.\n\n"
+        "**License:** [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). "
+        "Attribution: {attribution}.\n\n"
+        "Tasks: {tasks}. Game versions: {versions}."
+    ).format(
+        home=HOMEPAGE,
+        attribution=ATTRIBUTION,
+        tasks="; ".join(sorted(tasks)),
+        versions=", ".join(sorted(game_versions)) or "unknown",
+    )
+    card = create_lerobot_dataset_card(
+        tags=CARD_TAGS,
+        dataset_info=dataset.meta.info,
+        license=HUB_LICENSE,
+        repo_id=repo_id,
+        dataset_description=description,
+        url=HOMEPAGE,
+    )
+    card.save(out / "README.md")
+    return description
+
+
+CARD_TAGS = ["so101", "simulation", "mujoco", "care", "handover"]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("inputs", nargs="+", help="raw episode files or folders (.json, .jsonl, optionally .gz)")
@@ -46,6 +93,17 @@ def main(argv=None):
     ap.add_argument("--include-failed", action="store_true", help="keep episodes that did not succeed")
     ap.add_argument("--min-score", type=float, default=None, help="drop episodes scoring below this")
     ap.add_argument("--max-episodes", type=int, default=None)
+    ap.add_argument(
+        "--game-version",
+        action="append",
+        help="only keep episodes from this game version (repeatable). Scene layout and arm "
+        "physics change between versions, so don't mix them in one training set unless you mean to",
+    )
+    ap.add_argument(
+        "--allow-unlicensed",
+        action="store_true",
+        help=f"also keep episodes without \"license\": \"{DATA_LICENSE}\" (only for your own test data)",
+    )
     ap.add_argument("--height", type=int, default=IMAGE_SHAPE[0])
     ap.add_argument("--width", type=int, default=IMAGE_SHAPE[1])
     ap.add_argument("--overwrite", action="store_true", help="delete --out first if it exists")
@@ -67,6 +125,8 @@ def main(argv=None):
     scenes: dict[str, Scene] = {}
     dataset = None
     kept, skipped = 0, []
+    game_versions: set[str] = set()
+    tasks: set[str] = set()
     episodes = []
     for path in files:
         try:
@@ -88,6 +148,12 @@ def main(argv=None):
         errors = validate_raw(ep, scene.model)
         if errors:
             skipped.append((name, "; ".join(errors)))
+            continue
+        if ep.get("license") != DATA_LICENSE and not args.allow_unlicensed:
+            skipped.append((name, f"license is {ep.get('license')!r}, not {DATA_LICENSE!r}"))
+            continue
+        if args.game_version and ep.get("game_version") not in args.game_version:
+            skipped.append((name, f"game_version {ep.get('game_version')!r} not selected"))
             continue
         if not args.include_failed and not ep.get("success", False):
             skipped.append((name, "not successful"))
@@ -126,6 +192,8 @@ def main(argv=None):
             dataset.add_frame(frame)
         dataset.save_episode()
         kept += 1
+        game_versions.add(str(ep.get("game_version", "unknown")))
+        tasks.add(ep["task"])
         print(f"[{kept}] {name}: {len(qpos)} frames, task {ep['task']!r}")
 
     for s in scenes.values():
@@ -135,9 +203,18 @@ def main(argv=None):
     if dataset is None:
         sys.exit("no episodes passed validation; nothing written")
     dataset.finalize()
+    description = write_card(dataset, out, args.repo_id, game_versions, tasks)
     print(f"wrote {kept} episodes ({dataset.meta.total_frames} frames) to {out}; skipped {len(skipped)}")
+    if len(game_versions) > 1:
+        print(f"note: mixes game versions {sorted(game_versions)}; use --game-version to pick one")
     if args.push:
-        dataset.push_to_hub()
+        # LeRobot's default card license is apache-2.0; play data is CC BY 4.0.
+        dataset.push_to_hub(
+            license=HUB_LICENSE,
+            tags=CARD_TAGS,
+            dataset_description=description,
+            url=HOMEPAGE,
+        )
         print(f"pushed to https://huggingface.co/datasets/{args.repo_id}")
 
 

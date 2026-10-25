@@ -47,10 +47,15 @@ python convert.py data/raw --out data/lerobot/handover_kitchen
 python validate.py --dataset data/lerobot/handover_kitchen   # loads it back through LeRobot
 ```
 
-`convert.py` keeps successful episodes only (`--include-failed` to keep all,
-`--min-score 80` to raise the bar) and renders 480×640 views from the `front` and
+`convert.py` keeps successful, CC BY 4.0 licensed episodes only (`--include-failed` to keep
+all, `--min-score 80` to raise the bar, `--game-version 0.4.1` to use one scene/physics
+version; mixing versions mixes object layouts and arm strength) and renders 480×640 views from the `front` and
 `wrist_cam` cameras. Add `--push --repo-id <you>/handover_kitchen` to publish the dataset
-on the Hugging Face Hub (log in with `hf auth login` first).
+on the Hugging Face Hub (log in with `hf auth login` first). The dataset card it writes
+carries the CC BY 4.0 license and attribution.
+
+To watch episodes, `python preview.py data/raw --out preview.mp4` renders the front and
+wrist views side by side.
 
 ## 3. Fine-tune SmolVLA
 
@@ -100,6 +105,7 @@ handover_train/schema.py   raw format, validation, units (radians ↔ degrees / 
 handover_train/scene.py    loads web/models/*.xml in native MuJoCo, renders cameras
 convert.py                 raw episodes → LeRobot dataset
 validate.py                checks raw episodes and converted datasets
+preview.py                 renders raw episodes to an MP4 to watch
 scripted_demos.mjs         scripted cup-on-tray demos using the game's code
 train_smolvla.sh           lerobot-train for SmolVLA, MPS defaults
 policy_server.py           HTTP server: sim state in, servo targets out

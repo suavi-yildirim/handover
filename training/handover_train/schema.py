@@ -36,6 +36,13 @@ SMOLVLA_RENAME = {
     "observation.images.wrist": "observation.images.camera2",
 }
 
+# Recorded play data is released under CC BY 4.0 (the code is Apache-2.0). The game
+# stamps every episode with "license": DATA_LICENSE; the converter only keeps those.
+DATA_LICENSE = "CC-BY-4.0"
+HUB_LICENSE = "cc-by-4.0"  # the Hugging Face Hub's identifier for the same license
+ATTRIBUTION = "Suavi Yildirim and the Handover contributors"
+HOMEPAGE = "https://github.com/syldrm3141/handover"
+
 # Frames are resampled onto an exact 1/FPS grid (see resample); longer gaps mean the
 # recording stalled and the episode is rejected.
 MAX_GAP_S = 0.2
