@@ -7,10 +7,13 @@
 //     wrist: { pitch, roll },   // radians since last recenter (absolute, not rates)
 //     center,                   // bumps on every recenter
 //     tilt,                     // tilt control on?
-//     grip }                    // true = closed
+//     grip,                     // true = closed
+//     aim }                     // while "Hold to move" is held, else null:
+//                               //   { id, pos: {x, y, z} metres, roll radians }, relative to the press
 
 import { Stick } from './sticks.js';
 import { Tilt } from './tilt.js';
+import { Motion } from './motion.js';
 
 const SEND_HZ = 30;
 const $ = (id) => document.getElementById(id);
@@ -18,6 +21,13 @@ const $ = (id) => document.getElementById(id);
 const move = new Stick($('moveStick'), { axes: 'xy' });
 const lift = new Stick($('liftStick'), { axes: 'y' });
 const tilt = new Tilt();
+const motion = new Motion();
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) || d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+};
+let mode = store.get('handover.mode', 'motion');   // 'motion' | 'sticks'
+motion.mode = store.get('handover.motionKind', 'aim'); // 'aim' | 'push'
 let grip = false;
 let seq = 0;
 let rtt = null;
@@ -61,6 +71,79 @@ $('tilt').addEventListener('click', async () => {
   $('recenter').disabled = !tilt.enabled;
 });
 
+// --- Motion mode ----------------------------------------------------------
+
+const KIND_HELP = {
+  aim: 'Turn the phone left/right to slide, tip it up/down to reach farther/closer, twist to roll the wrist. Slider = height.',
+  push: 'Experimental: move the phone itself and the gripper follows. Short moves work best. Twist to roll the wrist.',
+};
+
+function applyMode() {
+  const m = mode === 'motion';
+  $('mode').textContent = m ? 'Mode: Motion' : 'Mode: Sticks';
+  $('kind').hidden = !m;
+  $('kind').textContent = motion.mode === 'aim' ? 'Style: Aim' : 'Style: Push β';
+  $('tilt').hidden = $('recenter').hidden = m;
+  $('clutch').hidden = !m;
+  $('moveStick').hidden = m;
+  $('clutchHelp').textContent = KIND_HELP[motion.mode];
+}
+
+async function ensureMotion() {
+  if (motion.enabled) return true;
+  try {
+    await motion.enable();
+    return true;
+  } catch (err) {
+    toast(err.message, 6000);
+    return false;
+  }
+}
+
+$('mode').addEventListener('click', async () => {
+  mode = mode === 'motion' ? 'sticks' : 'motion';
+  store.set('handover.mode', mode);
+  if (mode === 'motion') {
+    if (tilt.enabled) $('tilt').click();
+    await ensureMotion();
+  }
+  applyMode();
+});
+
+$('kind').addEventListener('click', () => {
+  motion.mode = motion.mode === 'aim' ? 'push' : 'aim';
+  store.set('handover.motionKind', motion.mode);
+  applyMode();
+});
+
+const clutchEl = $('clutch');
+let clutchPointer = null;
+clutchEl.addEventListener('pointerdown', async (e) => {
+  e.preventDefault();
+  if (clutchPointer !== null) return;
+  clutchPointer = e.pointerId;
+  clutchEl.setPointerCapture?.(e.pointerId);
+  if (!(await ensureMotion())) { clutchPointer = null; return; }
+  if (clutchPointer === null) return; // let go while the permission prompt was up
+  if (!motion.press()) {
+    toast('Waiting for motion sensor readings. Try again in a second.');
+    clutchPointer = null;
+    return;
+  }
+  clutchEl.classList.add('active');
+  navigator.vibrate?.(10);
+  send();
+});
+for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  clutchEl.addEventListener(type, (e) => {
+    if (e.pointerId !== clutchPointer) return;
+    clutchPointer = null;
+    motion.release();
+    clutchEl.classList.remove('active');
+    send();
+  });
+}
+
 $('recenter').addEventListener('click', () => { tilt.recenter(); navigator.vibrate?.(10); });
 
 function renderStatus() {
@@ -71,7 +154,10 @@ function renderStatus() {
     : !peers.game ? 'Connected, open the game on your Mac'
     : rtt == null ? 'Game connected' : `Game connected · ${Math.round(rtt)} ms`;
   const deg = (r) => `${Math.round(r * 180 / Math.PI)}°`.padStart(4);
-  $('readout').textContent = tilt.enabled ? `pitch ${deg(tilt.pitch)} roll ${deg(tilt.roll)}` : '';
+  const cm = (m) => `${Math.round(m * 100)}`.padStart(3);
+  $('readout').textContent = motion.held
+    ? `x${cm(motion.pos.x)} y${cm(motion.pos.y)} z${cm(motion.pos.z)} cm roll ${deg(motion.roll)}`
+    : tilt.enabled ? `pitch ${deg(tilt.pitch)} roll ${deg(tilt.roll)}` : '';
 }
 
 // Keep the screen awake while controlling.
@@ -81,7 +167,11 @@ async function keepAwake() {
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') keepAwake();
-  else send(true); // stop the arm when the phone locks or switches apps
+  else {
+    // Stop the arm when the phone locks or switches apps.
+    if (motion.held) { clutchPointer = null; motion.release(); clutchEl.classList.remove('active'); }
+    send(true);
+  }
 });
 keepAwake();
 
@@ -122,6 +212,7 @@ function send(stop = false) {
     center: tilt.centerId,
     tilt: tilt.enabled && !hidden,
     grip,
+    aim: motion.held && !hidden ? { id: motion.clutch, pos: motion.pos, roll: motion.roll } : null,
   }));
 }
 
@@ -134,7 +225,8 @@ setInterval(renderStatus, 200);
 if (!window.isSecureContext) {
   toast('Opened over http: sticks work, but tilt needs the https:// address.', 6000);
 }
+applyMode();
 connect();
 
 // Debug handle for tests.
-window.handoverPhone = { move, lift, tilt, setGrip, get ws() { return ws; } };
+window.handoverPhone = { move, lift, tilt, motion, setGrip, get ws() { return ws; } };
