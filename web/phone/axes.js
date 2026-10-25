@@ -50,9 +50,9 @@ let results = {};
 
 function showStep(msg = '') {
   const s = STEPS[step];
-  $('stepCount').textContent = `Move ${step + 1} of ${STEPS.length} · ${s.kind === 'turn' ? 'turn' : 'slide'}`;
+  $('stepCount').textContent = `Move ${step + 1} of ${STEPS.length} · ${s.title}`;
   $('progress').innerHTML = STEPS.map((_, i) => `<span class="${i < step ? 'done' : i === step ? 'now' : ''}"></span>`).join('');
-  $('stepTitle').textContent = `${s.title}: ${s.label}`;
+  $('stepTitle').textContent = `${s.kind === 'turn' ? 'ROTATE' : 'SLIDE'} the phone to ${s.label}`;
   $('stepHint').textContent = s.hint;
   $('hold').textContent = 'Hold, do the move, let go';
   $('redo').disabled = step === 0;
@@ -87,17 +87,24 @@ for (const type of ['pointerup', 'pointercancel']) {
 function finishMove(rec) {
   const s = STEPS[step];
   let result;
+  const turned = relativeRotation(rec.start, q);
+  const slid = slideDirection(rec.accel);
   if (s.kind === 'turn') {
-    const { axis, angle } = relativeRotation(rec.start, q);
+    const { axis, angle } = turned;
     if (angle < MIN_ANGLE) {
-      showStep(`<span class="warn">Only ${(angle * DEG).toFixed(0)}° of turn. Make it bigger (20–40°) and try again.</span>`);
+      showStep(slid.speed >= MIN_SPEED
+        ? `<span class="warn">That was a slide (only ${(angle * DEG).toFixed(0)}° of rotation). This step is a rotation: `
+          + 'keep the phone in place and rotate it about 30°.</span>'
+        : `<span class="warn">Only ${(angle * DEG).toFixed(0)}° of rotation. Rotate it more (20–40°) and try again.</span>`);
       return;
     }
     result = { axis, deg: Math.round(angle * DEG) };
   } else {
-    const { axis, speed } = slideDirection(rec.accel);
+    const { axis, speed } = slid;
     if (speed < MIN_SPEED) {
-      showStep(rec.accel.length
+      showStep(turned.angle > 2 * MIN_ANGLE
+        ? '<span class="warn">That was a rotation. This step is a slide: move the whole phone without rotating it.</span>'
+        : rec.accel.length
         ? '<span class="warn">That was too gentle to measure. Move the phone a bit faster, about 20 cm, then stop.</span>'
         : '<span class="bad">No acceleration readings from this phone.</span>');
       return;

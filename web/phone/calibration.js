@@ -13,12 +13,12 @@ const KEY = 'handover.motionCalibration.v2';
 export const VERSION = 2;
 
 export const STEPS = [
-  { id: 'roll', kind: 'turn', title: 'Roll', label: 'Roll the wrist CLOCKWISE', hint: 'Turn the phone the way you want the gripper to roll clockwise on screen.' },
-  { id: 'pitch', kind: 'turn', title: 'Pitch', label: 'Tilt the gripper DOWN', hint: 'Turn the phone the way you want the gripper to point more downward.' },
-  { id: 'yaw', kind: 'turn', title: 'Yaw', label: 'Swing the arm to the RIGHT', hint: 'Turn the phone the way you want the arm to swing right.' },
-  { id: 'x', kind: 'slide', title: 'Right', label: 'Move the phone to the RIGHT', hint: 'Slide the whole phone about 20 cm right in one smooth move, then stop. Keep it from turning.' },
-  { id: 'y', kind: 'slide', title: 'Forward', label: 'Move the phone AWAY from you', hint: 'Push the whole phone about 20 cm away from you, then stop.' },
-  { id: 'z', kind: 'slide', title: 'Up', label: 'Move the phone UP', hint: 'Lift the whole phone about 20 cm, then stop.' },
+  { id: 'roll', kind: 'turn', title: 'Roll', label: 'roll the wrist clockwise', hint: 'Keep the phone in place and rotate it the way that should roll the gripper clockwise on screen, about 30°.' },
+  { id: 'pitch', kind: 'turn', title: 'Pitch', label: 'tilt the gripper down', hint: 'Keep the phone in place and rotate it the way that should point the gripper more downward, about 30°.' },
+  { id: 'yaw', kind: 'turn', title: 'Yaw', label: 'swing the arm right', hint: 'Keep the phone in place and rotate it to the right, like turning a steering wheel lying flat, about 30°. (Moving the phone sideways comes next.)' },
+  { id: 'x', kind: 'slide', title: 'Right', label: 'move the gripper right', hint: 'Without rotating it, move the whole phone about 20–30 cm to the right in one smooth move, then stop.' },
+  { id: 'y', kind: 'slide', title: 'Forward', label: 'move the gripper away from you', hint: 'Without rotating it, push the whole phone about 20–30 cm away from you, then stop.' },
+  { id: 'z', kind: 'slide', title: 'Up', label: 'move the gripper up', hint: 'Without rotating it, lift the whole phone about 20–30 cm, then stop.' },
 ];
 export const MIN_ANGLE = 10 * Math.PI / 180;
 export const MIN_SPEED = 0.15; // m/s peak, so a slide is clearly a move and not hand shake
