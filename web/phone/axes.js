@@ -1,191 +1,186 @@
-// Phone axes page: live sensor readout, what the controller makes of it, and
-// calibration of the player's own moves (see calibration.js).
+// Phone setup page: the player does six moves once (roll, pitch, yaw turns and
+// right, forward, up slides) and the controller learns them (calibration.js).
+// The controller page sends players here until this is done.
 
 import { Motion } from './motion.js';
 import {
-  Calibration, STEPS, MIN_ANGLE, relativeRotation, quatFromEvent, describeAxis, report,
+  Calibration, STEPS, MIN_ANGLE, MIN_SPEED, relativeRotation, quatFromEvent, slideDirection, describe, report,
 } from './calibration.js';
 
 const $ = (id) => document.getElementById(id);
 const DEG = 180 / Math.PI;
 
 const motion = new Motion();
-let q = null, q0 = null, raw = null, accel = null;
+let q = null;
 
-// --- Bars -------------------------------------------------------------------
+// --- Sensors ------------------------------------------------------------------
 
-function makeBars(el, rows) {
-  el.innerHTML = rows.map((r) => `
-    <div class="bar"><div class="head"><span>${r.label}</span><span id="${r.id}v">–</span></div>
-    <div class="track"><div class="fill" id="${r.id}f"></div></div>
-    <div class="hint">${r.hint}</div></div>`).join('');
-}
-
-function setBar(id, value, range, text) {
-  const f = $(id + 'f');
-  const x = Math.max(-1, Math.min(1, value / range)) * 50;
-  f.style.left = `${x < 0 ? 50 + x : 50}%`;
-  f.style.width = `${Math.abs(x)}%`;
-  $(id + 'v').textContent = text;
-}
-
-makeBars($('phoneBars'), [
-  { id: 'px', label: 'About x (the right-edge axis)', hint: '+ top edge tips toward the screen side · − toward the back' },
-  { id: 'py', label: 'About y (the top-edge axis)', hint: '+ right edge dips toward the back · − toward the screen side' },
-  { id: 'pz', label: 'About z (out of the screen)', hint: '+ spins counter-clockwise · − clockwise, seen looking at the screen' },
-]);
-makeBars($('gripBars'), [
-  { id: 'gx', label: 'Gripper right / left', hint: '+ right · − left' },
-  { id: 'gy', label: 'Gripper away / toward you', hint: '+ away · − toward you' },
-  { id: 'gr', label: 'Wrist roll', hint: '+ clockwise on screen · − counter-clockwise' },
-]);
-
-function mappingNote() {
-  const c = motion.calibration;
-  $('mappingNote').innerHTML = c
-    ? `<span class="ok">Using your taught moves.</span> Right = ${describeAxis(c.axes.right)}; away = ${
-      describeAxis(c.axes.forward)}; roll = ${describeAxis(c.axes.roll)}.`
-    : `<span class="warn">Using the built-in mapping</span> for a phone held ${motion.hold === 'flat' ? 'flat' : 'upright'}: `
-      + 'tip the top away to go forward, dip the right side to go right, turn the phone right to roll clockwise. '
-      + 'Teach your own moves below if that feels wrong. Tap Zero after changing your hold.';
-}
-
-function render() {
-  if (raw) {
-    $('raw').textContent = `α ${raw.alpha.toFixed(0)} β ${raw.beta.toFixed(0)} γ ${raw.gamma.toFixed(0)} · screen ${raw.screen}°`;
-  }
-  if (q && q0) {
-    const { rv } = relativeRotation(q0, q);
-    setBar('px', rv[0] * DEG, 90, `${(rv[0] * DEG).toFixed(0)}°`);
-    setBar('py', rv[1] * DEG, 90, `${(rv[1] * DEG).toFixed(0)}°`);
-    setBar('pz', rv[2] * DEG, 90, `${(rv[2] * DEG).toFixed(0)}°`);
-  }
-  if (!motion.held && motion.q) motion.press();
-  if (motion.held) {
-    setBar('gx', motion.pos.x, 0.3, `${(motion.pos.x * 100).toFixed(0)} cm`);
-    setBar('gy', motion.pos.y, 0.3, `${(motion.pos.y * 100).toFixed(0)} cm`);
-    setBar('gr', motion.roll * DEG, 90, `${(motion.roll * DEG).toFixed(0)}°`);
-  }
-  if (accel) $('accel').textContent = `x ${accel.x.toFixed(2)}  y ${accel.y.toFixed(2)}  z ${accel.z.toFixed(2)}`;
-  requestAnimationFrame(render);
-}
-
-// --- Sensors ----------------------------------------------------------------
-
-function screenAngle() {
-  return screen.orientation?.angle ?? window.orientation ?? 0;
-}
-
-const samples = []; // raw readings during a calibration move, sent with the result
-let recording = false;
-
+let recording = null; // { start quaternion, raw orientation samples, acceleration samples }
 window.addEventListener('deviceorientation', (e) => {
   if (e.beta == null) return;
   q = quatFromEvent(e);
-  raw = { alpha: e.alpha || 0, beta: e.beta, gamma: e.gamma, screen: screenAngle() };
-  if (!q0) zero();
-  if (recording && samples.length < 600) samples.push([+(performance.now() / 1000).toFixed(3), raw.alpha, raw.beta, raw.gamma]);
+  if (recording && recording.orient.length < 600) {
+    recording.orient.push([+(performance.now() / 1000).toFixed(3), e.alpha || 0, e.beta, e.gamma]);
+  }
 });
 window.addEventListener('devicemotion', (e) => {
   const a = e.acceleration;
-  if (a && a.x != null) accel = a;
+  if (!recording || !a || a.x == null || recording.accel.length >= 1200) return;
+  const dt = Math.min(0.05, e.interval > 1 ? e.interval / 1000 : e.interval || 1 / 60);
+  recording.accel.push([dt, a.x, a.y, a.z]);
 });
-
-function zero() {
-  q0 = q;
-  motion.press(); // the page keeps "Hold to move" pressed, measured from here
-  mappingNote();
-}
 
 $('start').addEventListener('click', async () => {
   try {
-    await motion.enable(); // asks iPhone for motion access (covers this page's listeners too)
-    $('start').hidden = true;
+    await motion.enable(); // asks iPhone for motion access, which covers this page too
     $('sensorState').textContent = 'Sensors on';
-    $('hold').disabled = false;
-    setTimeout(() => { if (!q) $('sensorState').textContent = 'No sensor readings: is this the https:// address?'; }, 1500);
+    $('intro').hidden = true;
+    $('wizard').hidden = false;
+    setTimeout(() => { if (!q) $('stepMsg').innerHTML = '<span class="bad">No sensor readings. Is this the https:// address?</span>'; }, 1500);
     showStep();
   } catch (err) {
     $('sensorState').textContent = err.message;
   }
 });
-$('zero').addEventListener('click', () => { if (q) zero(); });
 
-// --- Calibration ------------------------------------------------------------
+// --- Wizard -------------------------------------------------------------------
 
 let step = 0;
 let results = {};
-let start = null;
 
 function showStep(msg = '') {
-  $('steps').innerHTML = STEPS.map((s, i) => {
-    const r = results[s.id];
-    const state = r ? `<span class="ok">✓ ${describeAxis(r.axis)}, ${r.deg}°</span>` : i === step ? '← now' : '';
-    return `<li>${s.label} ${state}</li>`;
-  }).join('');
-  $('hold').textContent = step < STEPS.length ? `Hold, ${STEPS[step].label}, let go` : 'Done';
-  $('hold').disabled = step >= STEPS.length || $('start').hidden === false;
-  $('calibMsg').innerHTML = msg;
-  mappingNote();
+  const s = STEPS[step];
+  $('stepCount').textContent = `Move ${step + 1} of ${STEPS.length} · ${s.kind === 'turn' ? 'turn' : 'slide'}`;
+  $('progress').innerHTML = STEPS.map((_, i) => `<span class="${i < step ? 'done' : i === step ? 'now' : ''}"></span>`).join('');
+  $('stepTitle').textContent = `${s.title}: ${s.label}`;
+  $('stepHint').textContent = s.hint;
+  $('hold').textContent = 'Hold, do the move, let go';
+  $('redo').disabled = step === 0;
+  $('stepMsg').innerHTML = msg;
+  $('learned').innerHTML = STEPS.filter((t) => results[t.id])
+    .map((t) => `<li class="ok">✓ <b>${t.title}</b>: ${describe(t.kind, results[t.id].axis)}</li>`).join('');
 }
 
 const hold = $('hold');
 let holdPointer = null;
 hold.addEventListener('pointerdown', (e) => {
-  if (hold.disabled || !q) return;
+  if (!q) return;
   e.preventDefault();
   holdPointer = e.pointerId;
   hold.setPointerCapture?.(e.pointerId);
   hold.classList.add('active');
-  start = q;
-  samples.length = 0;
-  recording = true;
+  hold.textContent = 'Now do the move…';
+  recording = { start: q, orient: [], accel: [] };
+  navigator.vibrate?.(10);
 });
 for (const type of ['pointerup', 'pointercancel']) {
   hold.addEventListener(type, (e) => {
     if (e.pointerId !== holdPointer) return;
     holdPointer = null;
     hold.classList.remove('active');
-    recording = false;
-    finishMove();
+    const rec = recording;
+    recording = null;
+    finishMove(rec);
   });
 }
 
-function finishMove() {
-  const { axis, angle } = relativeRotation(start, q);
-  if (angle < MIN_ANGLE) {
-    showStep(`<span class="warn">That was only ${(angle * DEG).toFixed(0)}°. Make the move a bit bigger and try again.</span>`);
-    return;
-  }
+function finishMove(rec) {
   const s = STEPS[step];
-  results[s.id] = { axis, deg: Math.round(angle * DEG), samples: samples.slice() };
+  let result;
+  if (s.kind === 'turn') {
+    const { axis, angle } = relativeRotation(rec.start, q);
+    if (angle < MIN_ANGLE) {
+      showStep(`<span class="warn">Only ${(angle * DEG).toFixed(0)}° of turn. Make it bigger (20–40°) and try again.</span>`);
+      return;
+    }
+    result = { axis, deg: Math.round(angle * DEG) };
+  } else {
+    const { axis, speed } = slideDirection(rec.accel);
+    if (speed < MIN_SPEED) {
+      showStep(rec.accel.length
+        ? '<span class="warn">That was too gentle to measure. Move the phone a bit faster, about 20 cm, then stop.</span>'
+        : '<span class="bad">No acceleration readings from this phone.</span>');
+      return;
+    }
+    result = { axis, peakSpeed: +speed.toFixed(2) };
+  }
+  results[s.id] = { ...result, orient: rec.orient, accel: rec.accel.slice(0, 400) };
+  navigator.vibrate?.(20);
   step++;
   if (step < STEPS.length) { showStep(); return; }
+  finishAll();
+}
 
-  const cal = new Calibration({ right: results.right.axis, forward: results.forward.axis, roll: results.roll.axis });
-  report('calibration', { valid: cal.valid, results, screen: screenAngle() });
+function finishAll() {
+  const axes = Object.fromEntries(STEPS.map((s) => [s.id, results[s.id].axis]));
+  const cal = new Calibration(axes);
+  report('calibration', { valid: cal.valid, results });
   if (!cal.valid) {
+    const turnsOk = !!cal.turnInv;
     results = {};
     step = 0;
-    showStep('<span class="bad">Two of the moves were too similar to tell apart. Try three clearly different moves.</span>');
+    showStep(`<span class="bad">Two of the ${turnsOk ? 'slides' : 'turns'} were too similar to tell apart. `
+      + 'Let’s do it again with clearly different moves.</span>');
     return;
   }
   cal.save();
   motion.calibration = cal;
-  zero();
-  showStep('<span class="ok">Saved. The controller now uses your moves. Check section 2, then go back to the controller.</span>');
+  $('wizard').hidden = true;
+  $('done').hidden = false;
 }
 
-$('restart').addEventListener('click', () => { results = {}; step = 0; showStep(); });
-$('builtin').addEventListener('click', () => {
-  Calibration.clear();
-  motion.calibration = null;
+$('redo').addEventListener('click', () => {
+  if (step === 0) return;
+  step--;
+  delete results[STEPS[step].id];
+  showStep();
+});
+$('again').addEventListener('click', () => {
   results = {};
   step = 0;
-  zero();
-  showStep('Back to the built-in mapping.');
+  $('done').hidden = true;
+  $('wizard').hidden = false;
+  showStep();
 });
+$('go').addEventListener('click', () => { location.href = './'; });
 
+// --- Try it -------------------------------------------------------------------
+
+const BARS = [
+  { id: 'roll', label: 'Wrist roll', unit: '°', range: 90, get: () => motion.roll * DEG },
+  { id: 'pitch', label: 'Wrist pitch (+ down)', unit: '°', range: 90, get: () => motion.pitch * DEG },
+  { id: 'x', label: 'Right / left', unit: ' cm', range: 20, get: () => motion.pos.x * 100 },
+  { id: 'y', label: 'Away / toward you', unit: ' cm', range: 20, get: () => motion.pos.y * 100 },
+  { id: 'z', label: 'Up / down', unit: ' cm', range: 20, get: () => motion.pos.z * 100 },
+];
+$('bars').innerHTML = BARS.map((b) => `
+  <div class="bar"><div class="head"><span>${b.label}</span><span id="${b.id}v">0${b.unit}</span></div>
+  <div class="track"><div class="fill" id="${b.id}f"></div></div></div>`).join('');
+
+function renderBars() {
+  if (!$('done').hidden) {
+    for (const b of BARS) {
+      const v = motion.held ? b.get() : 0;
+      const x = Math.max(-1, Math.min(1, v / b.range)) * 50;
+      $(b.id + 'f').style.left = `${x < 0 ? 50 + x : 50}%`;
+      $(b.id + 'f').style.width = `${Math.abs(x)}%`;
+      $(b.id + 'v').textContent = `${v.toFixed(0)}${b.unit}`;
+    }
+  }
+  requestAnimationFrame(renderBars);
+}
+renderBars();
+
+const tryHold = $('tryHold');
+tryHold.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  tryHold.setPointerCapture?.(e.pointerId);
+  if (motion.press()) tryHold.classList.add('active');
+});
+for (const type of ['pointerup', 'pointercancel']) {
+  tryHold.addEventListener(type, () => { motion.release(); tryHold.classList.remove('active'); });
+}
+
+if (Calibration.load()) $('back').textContent = '← Controller';
 showStep();
-render();
-window.handoverAxes = { motion, get q() { return q; } };
+window.handoverSetup = { motion, get step() { return step; } };
