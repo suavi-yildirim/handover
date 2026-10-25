@@ -52,7 +52,7 @@ Then open <http://localhost:8000>.
 
 | Key | Action |
 |---|---|
-| W A S D | move the gripper (relative to the camera) |
+| W A S D | move the gripper straight along the table (relative to the view, snapped to the table axes) |
 | E / Q | up / down |
 | I / K | tilt the gripper down / up |
 | J / L | roll the wrist |

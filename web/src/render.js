@@ -206,13 +206,16 @@ export class Renderer {
     this.renderer.setSize(w, h, false);
   }
 
-  // Horizontal forward/right unit vectors of the camera, for camera-relative controls.
+  // Horizontal forward/right unit vectors for camera-relative controls. The camera direction
+  // is snapped to the nearest table axis, so W / S always move the gripper straight along the
+  // table (not at an angle) and turning the view in 90 degree steps turns the controls with it.
   groundAxes() {
     const f = new THREE.Vector3();
     this.camera.getWorldDirection(f);
     f.z = 0;
     if (f.lengthSq() < 1e-8) f.set(1, 0, 0);
-    f.normalize();
+    if (Math.abs(f.x) >= Math.abs(f.y)) f.set(Math.sign(f.x), 0, 0);
+    else f.set(0, Math.sign(f.y), 0);
     return { forward: [f.x, f.y], right: [f.y, -f.x] };
   }
 

@@ -21,7 +21,7 @@
     <material name="pills" rgba="0.95 0.55 0.15 1"/>
     <material name="pills_cap" rgba="0.95 0.95 0.95 1"/>
     <material name="hand_zone" rgba="0.95 0.35 0.45 0.25"/>
-    <material name="glasses_case" rgba="0.18 0.18 0.22 1"/>
+    <material name="glasses_case" rgba="0.18 0.18 0.22 0.3"/>
     <material name="edge_zone" rgba="0.95 0.25 0.15 0.4"/>
     <material name="safe_zone" rgba="0.2 0.8 0.4 0.4"/>
     <!-- Convex meshes for the props (MuJoCo takes the convex hull of each). Vertices are
