@@ -43,6 +43,7 @@ Requirements: any modern browser and Python 3 (already on macOS). No MuJoCo inst
 GPU, no build step: the physics engine runs in the browser as WebAssembly.
 
 ```sh
+cd path/to/handover   # the folder you downloaded
 cd web
 python3 -m http.server 8000
 ```
@@ -93,6 +94,7 @@ and press Space again to let go.
 Start the game with the phone server instead of `http.server` (still only Python 3):
 
 ```sh
+cd path/to/handover   # the folder you downloaded
 python3 tools/phone_server.py
 ```
 
