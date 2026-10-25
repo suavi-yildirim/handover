@@ -30,6 +30,7 @@ import struct
 import subprocess
 import sys
 import threading
+import time
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 ROLES = ("game", "phone")
@@ -190,6 +191,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"  # browsers require it for the WebSocket upgrade
     hub = None
     info = None
+    log_dir = None
+
+    def do_POST(self):
+        # The phone's axes page sends calibration and sensor diagnostics here; they
+        # are saved next to the project so they can be inspected later.
+        if self.path.split("?", 1)[0] != "/__phone/log":
+            self.send_error(404)
+            return
+        n = int(self.headers.get("Content-Length") or 0)
+        if n <= 0 or n > 256 * 1024:
+            self.send_error(413)
+            return
+        body = self.rfile.read(n)
+        try:
+            record = json.loads(body)
+        except ValueError:
+            self.send_error(400)
+            return
+        os.makedirs(self.log_dir, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        kind = "".join(c for c in str(record.get("kind", "log")) if c.isalnum() or c in "-_")[:32] or "log"
+        path = os.path.join(self.log_dir, "%s-%s.json" % (stamp, kind))
+        with open(path, "w") as f:
+            json.dump(record, f, indent=1)
+        print("Phone %s saved to %s" % (kind, os.path.relpath(path)))
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def log_message(self, fmt, *args):
         # Static file requests are noise; keep errors only.
@@ -274,6 +303,7 @@ def main():
 
     phone_url = "https://%s:%d/phone/" % (ip, args.https_port) if cert else "http://%s:%d/phone/" % (ip, args.port)
     Handler.hub = Hub()
+    Handler.log_dir = os.path.join(project, ".phone_logs")
     Handler.info = {"phone_url": phone_url, "lan_ip": ip, "https": bool(cert)}
     handler = functools.partial(Handler, directory=root)
 

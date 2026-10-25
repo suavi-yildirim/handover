@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14171c">
+<title>Handover phone axes</title>
+<style>
+  :root {
+    --bg: #14171c; --panel: #1f242c; --line: #333a45; --text: #e8ecf1; --muted: #8b95a3;
+    --accent: #4fb3ff; --ok: #3ecf8e; --warn: #f5b942; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  a { color: var(--accent); }
+  h1 { font-size: 20px; margin: 8px 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  p { margin: 0 0 10px; color: var(--muted); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 12px 0; }
+  button {
+    font: inherit; color: var(--text); background: #2a313b; border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 14px; min-height: 44px; touch-action: manipulation;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #06121c; font-weight: 600; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .mono { font: 13px ui-monospace, Menlo, monospace; }
+  .bars { display: grid; gap: 10px; margin-top: 8px; }
+  .bar { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .bar .head { display: flex; justify-content: space-between; font-size: 13px; }
+  .bar .head span:last-child { font: 13px ui-monospace, Menlo, monospace; }
+  .track { position: relative; height: 12px; background: #2a313b; border-radius: 6px; overflow: hidden; }
+  .track::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--muted); }
+  .fill { position: absolute; top: 0; bottom: 0; background: var(--accent); }
+  .hint { font-size: 12px; color: var(--muted); }
+  #hold {
+    width: 100%; min-height: 120px; font-size: 18px; font-weight: 600; margin-top: 10px; touch-action: none;
+    border: 2px dashed var(--line); border-radius: 16px; background: #17202a;
+  }
+  #hold.active { border: 2px solid var(--accent); background: #17344a; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  ol { margin: 6px 0 0; padding-left: 20px; } li { margin: 4px 0; }
+</style>
+</head>
+<body>
+  <div class="row" style="justify-content:space-between">
+    <a href="./">← Controller</a>
+    <span class="hint" id="sensorState">Sensors off</span>
+  </div>
+  <h1>Phone axes</h1>
+  <p>See what your phone's motion sensors report, check what each move does to the gripper, and teach
+     the controller your own moves.</p>
+  <button class="primary" id="start">Start sensors</button>
+
+  <section>
+    <h2>1 · Rotation since Zero, in the phone's own frame</h2>
+    <p>Hold the phone the way you play, tap Zero, then try one move at a time.</p>
+    <div class="row"><button id="zero">Zero</button><span class="hint mono" id="raw">α – β – γ –</span></div>
+    <div class="bars" id="phoneBars"></div>
+  </section>
+
+  <section>
+    <h2>2 · What the controller does with it</h2>
+    <p id="mappingNote"></p>
+    <div class="bars" id="gripBars"></div>
+  </section>
+
+  <section>
+    <h2>3 · Teach your moves</h2>
+    <p>Three quick moves, about 20–40° each. Hold the button, do the move, let go. Start each move from your
+       normal hold.</p>
+    <ol id="steps"></ol>
+    <button id="hold" disabled>Start sensors first</button>
+    <p id="calibMsg" style="margin-top:10px"></p>
+    <div class="row">
+      <button id="restart">Start over</button>
+      <button id="builtin">Use built-in mapping</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Gravity-free acceleration (Push β)</h2>
+    <p>Phone frame, m/s². Should read near 0 when still.</p>
+    <div class="mono" id="accel">–</div>
+  </section>
+
+  <script type="module" src="./axes.js"></script>
+</body>
+</html>
