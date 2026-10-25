@@ -1,0 +1,15 @@
+Handover
+Copyright 2026 the Handover contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It includes third-party software, each under its own license (full texts alongside):
+
+- MuJoCo (WebAssembly build, @mujoco/mujoco 3.16.0), Apache License 2.0
+  web/vendor/mujoco/LICENSE
+- SO-101 robot model from MuJoCo Menagerie (robotstudio_so101), Apache License 2.0
+  web/models/so101/LICENSE
+- three.js 0.186.1, MIT License
+  web/vendor/three/LICENSE
+- qrcode-generator 1.4.4, MIT License
+  web/vendor/qrcode/LICENSE
