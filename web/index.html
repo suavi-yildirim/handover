@@ -51,6 +51,7 @@
     #download, #send-episodes { margin-top: 10px; width: 100%; padding: 6px; border: 1px solid #c9d1d6;
       border-radius: 6px; background: #fff; cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
     #send-episodes { margin-top: 6px; }
+    #send-episodes:disabled { opacity: 0.6; cursor: default; border-color: #c9d1d6; }
     #download:hover, #send-episodes:hover { border-color: var(--accent); }
     /* Consent dialog for sending episodes. */
     #send-dialog { border: 0; border-radius: 12px; padding: 18px 20px; max-width: min(420px, 92vw);
@@ -65,8 +66,12 @@
       font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
     #send-dialog button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     #send-dialog button:disabled { opacity: 0.45; cursor: default; }
-    #send-status { font-size: 13px; }
-    #send-status a { color: var(--accent); }
+    #share-status { margin: 6px 0 0; font-size: 12px; opacity: 0.75; }
+    #share-status.error { color: #b4232c; opacity: 1; }
+    #send-id { font: 12px ui-monospace, Menlo, monospace; }
+    /* Short note after each shared episode, since the menu is usually closed. */
+    #share-toast { top: 16px; right: 16px; font-size: 13px; z-index: 15; max-width: min(340px, 80vw); }
+    #share-toast.error { color: #b4232c; }
     .dim { opacity: 0.65; font-size: 13px; }
     /* Side menu: title, task and controls slide in from the left. Hidden by default so the
        views stay clear; M or the button opens it. */
@@ -101,7 +106,8 @@
       <p id="task-hint"></p>
       <ul id="task-checks"></ul>
       <button id="download" hidden></button>
-      <button id="send-episodes" hidden>Send my episodes</button>
+      <button id="send-episodes" hidden></button>
+      <p id="share-status" hidden></p>
     </div>
     <div id="help" class="panel">
       <div id="help-keys"></div>
@@ -115,31 +121,32 @@
     <output id="speed-out">100%</output>
   </div>
   <dialog id="send-dialog" aria-labelledby="send-title">
-    <h2 id="send-title">Send my episodes</h2>
-    <p id="send-summary"></p>
-    <p>The file holds, for each episode:</p>
+    <h2 id="send-title">Share my episodes</h2>
+    <p>When sharing is on, every episode you finish is sent automatically to the Handover project's
+      dataset on Hugging Face. No login is needed. <span id="send-summary"></span></p>
+    <p>Each episode holds:</p>
     <ul>
       <li>the robot's joint positions, speeds and motor commands, 30 times per second (simulated, no camera images or sound)</li>
       <li>your steering inputs, the task, its result and score, and the devices you used</li>
       <li>the game version and a random contributor ID kept in this browser, which links your episodes together</li>
     </ul>
     <p>Failed attempts are included; training filters them out. Nothing else about you is in the file.</p>
-    <p><strong>The file is released under CC BY 4.0.</strong> Anyone may use, change and share it, including for
-      commercial work, if they credit the Handover contributors.</p>
-    <p><strong>Sending is public.</strong> The file goes into a public GitHub issue on the project's repository.
-      GitHub keeps issues and their history, so the file can't be fully removed later. Your IP address is visible to
-      GitHub, as with any web request. You need a GitHub account to post the issue.</p>
+    <p><strong>The episodes are released under CC BY 4.0.</strong> The project publishes them as an open dataset:
+      anyone may use, change and share them, including for commercial work, if they credit the Handover contributors.</p>
+    <p><strong>Privacy.</strong> The upload server sees your IP address while it receives a file, to stop floods,
+      but never saves it. You can turn sharing off at any time in the menu. To have episodes you already shared removed,
+      quote your contributor ID: <span id="send-id"></span></p>
     <form method="dialog" id="send-form">
-      <label><input type="checkbox" id="send-consent"> I understand and agree that these episodes are published
-        under CC BY 4.0 in a public GitHub issue.</label>
+      <label><input type="checkbox" id="send-consent"> I agree that my episodes are shared and published under
+        CC BY 4.0.</label>
       <div class="actions">
         <button type="submit" value="cancel">Not now</button>
-        <button type="button" id="send-go" class="primary" disabled>Download and open issue</button>
+        <button type="button" id="send-go" class="primary" disabled>Turn on sharing</button>
       </div>
     </form>
-    <p id="send-status" role="status" aria-live="polite"></p>
   </dialog>
   <div id="result" class="panel" hidden></div>
+  <div id="share-toast" class="panel" role="status" aria-live="polite" hidden></div>
   <div id="view-labels"></div>
   <div id="wrist-label">Wrist camera · C hides</div>
   <div id="status" class="panel">Loading…</div>

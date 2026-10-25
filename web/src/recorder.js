@@ -21,8 +21,9 @@ function uuid() {
 }
 
 // A random id per browser so a contributor's episodes can be grouped (for reputation
-// and data-value tracking) without knowing who they are.
-function contributorId() {
+// and data-value tracking) without knowing who they are. Also what a player quotes to
+// have their shared episodes removed.
+export function contributorId() {
   try {
     let id = localStorage.getItem('handover.contributor');
     if (!id) localStorage.setItem('handover.contributor', (id = uuid()));
@@ -113,8 +114,8 @@ export class Recorder {
 
   // Episodes as one gzipped JSON Lines file (one episode per line). Returns { blob, name }.
   // Gzip is used where the browser supports it; the blob type says which.
-  async file() {
-    const text = this.episodes.map((e) => JSON.stringify(e)).join('\n') + '\n';
+  async file(episodes = this.episodes) {
+    const text = episodes.map((e) => JSON.stringify(e)).join('\n') + '\n';
     let blob = new Blob([text], { type: 'application/x-ndjson' }), ext = 'jsonl';
     if (globalThis.CompressionStream) {
       const gz = await new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();

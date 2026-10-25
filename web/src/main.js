@@ -6,8 +6,8 @@ import { ROBOT } from './robot.js';
 import { PhoneInput, addCommands } from './phone.js';
 import { SpaceMouseInput } from './spacemouse.js';
 import { TASKS } from './task.js';
-import { Recorder, GAME_VERSION } from './recorder.js';
-import { issueUrl, openIssue } from './upload.js';
+import { Recorder, contributorId } from './recorder.js';
+import { Sharer } from './upload.js';
 
 const LEVEL = 'models/kitchen.xml';
 const MAX_STEPS_PER_FRAME = 50; // don't spiral if a frame takes too long
@@ -22,9 +22,10 @@ async function main() {
   let task = tasks[Math.min(tasks.length - 1, Math.max(0, Number(load('handover.task')) || 0))];
 
   const recorder = new Recorder(sim, teleop, { level: LEVEL });
+  const sharer = new Sharer(recorder);
 
   const reset = () => {
-    if (recorder.current) recorder.finish({ success: false, reason: 'reset before finishing' }, task.events);
+    if (recorder.current) sharer.add(recorder.finish({ success: false, reason: 'reset before finishing' }, task.events));
     sim.reset(); teleop.reset(); task.reset();
     recorder.start(task);
     $('result').hidden = true;
@@ -41,7 +42,7 @@ async function main() {
   };
   recorder.start(task);
   $('download').addEventListener('click', (e) => { recorder.download(); e.currentTarget.blur(); });
-  setupSend(recorder);
+  setupShare(sharer);
   const keys = new Keyboard({ onToggleGrip: () => teleop.toggleGrip(), onReset: reset });
   window.addEventListener('keydown', (e) => {
     const i = Number(e.key) - 1;
@@ -125,7 +126,7 @@ async function main() {
   }
 
   // Exposed for debugging and automated tests.
-  window.handover = { sim, teleop, view, keys, phone, spacemouse, task, recorder, reset };
+  window.handover = { sim, teleop, view, keys, phone, spacemouse, task, recorder, sharer, reset };
 
   let last = performance.now(), simLag = 0, fps = 0, frames = 0, fpsT = last;
   function frame(now) {
@@ -147,7 +148,7 @@ async function main() {
 
     task.update();
     if (task.state !== 'playing' && recorder.current) {
-      recorder.finish(task.result, task.events);
+      sharer.add(recorder.finish(task.result, task.events));
       showEpisodes(recorder);
     }
     view.draw(teleop.target);
@@ -196,54 +197,50 @@ function showTask(task) {
 
 function showEpisodes(recorder) {
   $('download').hidden = recorder.count === 0;
-  $('send-episodes').hidden = recorder.count === 0;
   $('download').textContent = `Download ${recorder.count} episode${recorder.count === 1 ? '' : 's'}`;
 }
 
-// Sending is opt-in: a consent step states what the file holds and that it is published under
-// CC-BY-4.0 in a public GitHub issue. Only after the box is ticked does the file download and
-// the issue page open, so the player attaches the file themselves. Declining keeps the episodes
-// here, and Download still works. See docs/upload.md.
-function setupSend(recorder) {
-  const dialog = $('send-dialog'), consent = $('send-consent'), go = $('send-go'), status = $('send-status');
-  $('send-episodes').addEventListener('click', async (e) => {
+// Sharing is opt-in: the consent dialog says what an episode holds, that episodes are
+// published under CC-BY-4.0, and how to get them removed. Only after the box is ticked does
+// the Sharer send episodes, each one as it finishes. "Not now" sends nothing; Download still
+// works. Turning sharing off needs no dialog. See docs/upload.md.
+function setupShare(sharer) {
+  const button = $('send-episodes'), status = $('share-status'), toast = $('share-toast');
+  const dialog = $('send-dialog'), consent = $('send-consent'), go = $('send-go');
+  let toastTimer = 0;
+  function show() {
+    button.hidden = false;
+    button.disabled = !sharer.available;
+    button.textContent = !sharer.available ? 'Sharing isn\'t set up yet'
+      : sharer.enabled ? 'Sharing on · click to stop' : 'Share my episodes';
+    status.hidden = !sharer.message;
+    status.textContent = sharer.message;
+    status.classList.toggle('error', sharer.state === 'error');
+    if (sharer.message && sharer.state !== 'off') {
+      toast.hidden = false;
+      toast.textContent = sharer.message;
+      toast.classList.toggle('error', sharer.state === 'error');
+      clearTimeout(toastTimer);
+      if (sharer.state !== 'sending') toastTimer = setTimeout(() => { toast.hidden = true; }, 6000);
+    }
+  }
+  sharer.onChange = show;
+  show();
+  button.addEventListener('click', (e) => {
     e.currentTarget.blur();
+    if (sharer.enabled) { sharer.disable(); return; }
+    const n = sharer.recorder.count;
     consent.checked = false;
     go.disabled = true;
-    status.textContent = '';
-    try {
-      const { blob } = await recorder.file();
-      const n = recorder.count;
-      $('send-summary').textContent =
-        `This file has ${n} episode${n === 1 ? '' : 's'} (about ${Math.max(1, Math.round(blob.size / 1024))} KB).`;
-      dialog.showModal();
-    } catch (err) {
-      console.error(err);
-      status.textContent = 'Could not prepare the file. Try Download instead.';
-    }
+    $('send-summary').textContent = n ? `Turning it on also sends the ${n} episode${n === 1 ? '' : 's'} ` +
+      'you played in this window.' : '';
+    $('send-id').textContent = contributorId() ?? '(not available in this browser)';
+    dialog.showModal();
   });
   consent.addEventListener('change', () => { go.disabled = !consent.checked; });
-  go.addEventListener('click', async () => {
-    go.disabled = true;
-    try {
-      const file = await recorder.file();
-      recorder.save(file);
-      const url = issueUrl({ count: recorder.count, gameVersion: GAME_VERSION, filename: file.name });
-      if (openIssue(url)) {
-        status.textContent = 'Downloaded. A GitHub issue opened in a new tab: drag the downloaded file into it ' +
-          'and submit. Nothing is public until you submit.';
-      } else {
-        status.textContent = 'Downloaded. Your browser blocked the new tab, so open the issue yourself and drag ' +
-          'the downloaded file into it. Nothing is public until you submit: ';
-        const a = document.createElement('a');
-        a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open the issue';
-        status.append(a);
-      }
-    } catch (err) {
-      console.error(err);
-      status.textContent = 'Could not prepare the file. Try Download instead.';
-    }
-    go.disabled = !consent.checked;
+  go.addEventListener('click', () => {
+    dialog.close();
+    sharer.enable();
   });
 }
 
