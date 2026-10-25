@@ -3,9 +3,10 @@
 // Works like a mouse with a button: hold "Hold to move", move the phone, let
 // go to reposition your hand. Two ways to read the motion:
 //
-//   aim:  gyro-based, steady. Turn the phone left/right to slide the gripper
-//         left/right, tip it up/down to push it farther/closer, twist it like a
-//         key to roll the wrist. Height comes from the slider.
+//   aim:  gyro-based, steady. Tilt the phone like a joystick: tip the top edge
+//         away to go forward, dip the right side to go right, turn the phone
+//         right to roll the wrist clockwise. Height comes from the slider. The
+//         player can teach their own moves on axes.html instead.
 //   push: accelerometer-based, experimental. Physically move the phone and the
 //         gripper follows in 3D. Phone accelerometers drift, so this works for
 //         short moves only.
@@ -16,6 +17,7 @@
 //   roll              radians of wrist roll
 
 import { quatFromEuler, rotate } from './tilt.js';
+import { Calibration, PRESETS, relativeRotation } from './calibration.js';
 
 const AIM_GAIN = 0.4;        // metres of gripper travel per radian of phone turn (~0.7 cm per degree)
 const PUSH_GAIN = 1.5;       // gripper metres per metre of hand motion (the leaky estimate undershoots)
@@ -23,17 +25,11 @@ const PUSH_LEAK = 0.6;       // s; velocity estimate decays toward zero, which l
 const PUSH_DEADBAND = 0.08;  // m/s²; sensor noise below this is ignored
 
 // The phone "points" along its top edge when held flat-ish, or out of its back
-// when held upright. Picked on each press, whichever is closer to level.
+// when held upright. Picked on each press, whichever is closer to level; Push
+// uses it to tell which way "forward" is.
 const TOP = [0, 1, 0];
 const BACK = [0, 0, -1];
-
-// How far the phone is banked (turned like a key) around its pointing axis:
-// the angle its right edge dips below level. Turning left/right or tipping
-// up/down leaves it at zero.
-function bank(q) {
-  const right = rotate(q, [1, 0, 0]);
-  return Math.asin(Math.max(-1, Math.min(1, -right[2])));
-}
+const BUILTIN = { flat: new Calibration(PRESETS.flat), upright: new Calibration(PRESETS.upright) };
 
 export class Motion {
   constructor() {
@@ -45,6 +41,7 @@ export class Motion {
     this.q = null;        // device -> world orientation
     this.pos = { x: 0, y: 0, z: 0 };
     this.roll = 0;
+    this.calibration = Calibration.load(); // learned from axes.html; null = built-in mapping
     this._onOrient = (e) => this._orient(e);
     this._onMotion = (e) => this._motion(e);
   }
@@ -71,12 +68,13 @@ export class Motion {
     this.clutch++;
     this.q0 = this.q;
     const top = rotate(this.q, TOP), back = rotate(this.q, BACK);
-    this.pointer = Math.abs(top[2]) <= Math.abs(back[2]) ? TOP : BACK;
-    this.bank0 = bank(this.q);
+    const flat = Math.abs(top[2]) <= Math.abs(back[2]);
+    this.pointer = flat ? TOP : BACK;
+    this.hold = flat ? 'flat' : 'upright';
     // The player's frame: forward is where the phone pointed, flattened onto the floor.
     const p = rotate(this.q0, this.pointer);
     this.heading = Math.atan2(p[1], p[0]);
-    this.elev0 = Math.asin(Math.max(-1, Math.min(1, p[2])));
+    this.mapping = this.calibration || BUILTIN[this.hold];
     this.vel = [0, 0, 0];
     this.hand = [0, 0, 0];
     this.pos = { x: 0, y: 0, z: 0 };
@@ -94,17 +92,10 @@ export class Motion {
     this.q = quatFromEuler(e.alpha || 0, e.beta, e.gamma);
     if (!this.held) return;
 
-    // Turning it like a key -> wrist roll (clockwise = positive).
-    this.roll = bank(this.q) - this.bank0;
-
-    if (this.mode === 'aim') {
-      const p = rotate(this.q, this.pointer);
-      let dYaw = Math.atan2(p[1], p[0]) - this.heading;
-      dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
-      const dElev = Math.asin(Math.max(-1, Math.min(1, p[2]))) - this.elev0;
-      // Turn left (positive yaw) -> gripper left; tip up -> farther away.
-      this.pos = { x: -dYaw * AIM_GAIN, y: dElev * AIM_GAIN, z: 0 };
-    }
+    // Split the rotation since the press into the three moves.
+    const s = this.mapping.split(relativeRotation(this.q0, this.q).rv);
+    this.roll = s.roll;
+    if (this.mode === 'aim') this.pos = { x: s.right * AIM_GAIN, y: s.forward * AIM_GAIN, z: 0 };
   }
 
   _motion(e) {

@@ -102,11 +102,14 @@ reposition your hand (like lifting a mouse). Two styles, switched with the *Styl
 
 | Style | What moves the gripper |
 |---|---|
-| Aim (default) | turn the phone left / right to slide, tip it up / down to reach farther / closer, turn it like a key to roll the wrist; the slider sets the height |
+| Aim (default) | tilt it like a joystick: tip the top edge away to go forward, dip the right side to go right, turn the phone right to roll the wrist clockwise; the slider sets the height |
 | Push β | move the phone itself and the gripper follows in 3D. Experimental: phone accelerometers drift, so short moves work best |
 
-Hold the phone flat (top edge toward the screen) or upright (back toward the screen); both
-work. True 6-DoF tracking of an iPhone needs a native ARKit app, which is a later step.
+Hold the phone flat (screen up) or upright (screen facing you); both work. If the moves feel
+wrong, tap **Axes** on the phone: it shows live what the phone's sensors report and what each
+move does to the gripper, and lets you teach your own three moves (right, forward, roll) once.
+Those results are also saved on the Mac in `.phone_logs/`. True 6-DoF tracking of an iPhone
+needs a native ARKit app, which is a later step.
 
 *Mode: Sticks* switches to on-screen controls:
 
@@ -216,7 +219,8 @@ related research.
 
 ## License
 
-Handover is meant to be open source; a license for its own code hasn't been picked yet
-(Apache-2.0 would match MuJoCo and the robot model). The SO-101 model (`web/models/so101`) is Apache-2.0 from
+Handover is open source under the [Apache License 2.0](LICENSE), copyright 2026 the
+Handover contributors. The SO-101 model (`web/models/so101`) is Apache-2.0 from
 [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie); MuJoCo is
-Apache-2.0 and three.js is MIT, with their licenses in `web/vendor`.
+Apache-2.0, three.js and qrcode-generator are MIT, with their licenses in `web/vendor`; see [NOTICE](NOTICE). Contributions are accepted under
+Apache-2.0.

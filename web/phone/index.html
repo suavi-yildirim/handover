@@ -35,6 +35,10 @@
     font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
     border-radius: 10px; padding: 8px 12px; min-height: 40px;
   }
+  a.btn {
+    color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 12px; min-height: 40px; text-decoration: none; display: inline-flex; align-items: center;
+  }
   button.on { border-color: var(--accent); color: var(--accent); }
   button:disabled { opacity: 0.4; }
   .readout { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); min-width: 9em; }
@@ -95,6 +99,7 @@
     <span class="readout" id="readout"></span>
     <button id="mode">Motion</button>
     <button id="kind" hidden>Aim</button>
+    <a class="btn" id="axesLink" href="./axes.html" hidden>Axes</a>
     <button id="tilt">Tilt: off</button>
     <button id="recenter" disabled>Recenter</button>
   </header>
