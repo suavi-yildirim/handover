@@ -57,10 +57,11 @@ function setPose(obj, pos, mat) {
 const ROOM_LAYER = 1;
 
 // Orthographic helper views. center/half: the visible window (m) in view coordinates
-// (horizontal, vertical); far clips away what lies behind the table.
+// (horizontal, vertical); far clips away what lies behind the table. The front view sits
+// under the task panel, so its window is shifted to show the robot right of the panel.
 const ORTHO_VIEWS = [
   { label: 'Top', pos: [0.17, 0, 0.7], look: [0.17, 0, 0], up: [1, 0, 0], far: 0.75, center: [0, 0.04], half: 0.27 },
-  { label: 'Front (facing the robot)', pos: [0.6, 0, 0.15], look: [0, 0, 0.15], up: [0, 0, 1], far: 1.1, center: [0, -0.03], half: 0.2 },
+  { label: 'Front (from behind the robot)', pos: [-0.45, 0, 0.15], look: [0, 0, 0.15], up: [0, 0, 1], far: 1.05, center: [-0.14, -0.03], half: 0.2 },
   { label: 'Side (robot facing right)', pos: [0.17, -0.6, 0.15], look: [0.17, 0, 0.15], up: [0, 0, 1], far: 1.2, center: [0, -0.03], half: 0.2 },
 ];
 
@@ -126,20 +127,23 @@ export class Renderer {
   }
 
   // Viewport rectangles (CSS pixels, y from the bottom) for the current layout.
-  // Quad layout: 3D view top-left (under the task panel), top view top-right, front view
-  // bottom-left, side view bottom-right.
+  // Quad layout: front view top-left, top view top-right, 3D view bottom-left, side view
+  // bottom-right.
   views() {
     const { W, H } = this.size();
     if (this.layout !== 'quad') return [{ cam: this.camera, x: 0, y: 0, w: W, h: H }];
     const w = Math.floor(W / 2), h = Math.floor(H / 2);
     const [top, front, side] = this.ortho;
     return [
-      { cam: this.camera, label: '3D view (drag to orbit)', x: 0, y: H - h, w, h },
+      { ...front, x: 0, y: H - h, w, h },
       { ...top, x: W - w, y: H - h, w, h },
-      { ...front, x: 0, y: 0, w, h },
+      { cam: this.camera, label: '3D view (drag to orbit)', x: 0, y: 0, w, h },
       { ...side, x: W - w, y: 0, w, h },
     ];
   }
+
+  // The wrist inset shows in the single-view layout only (C toggles it there).
+  get wristVisible() { return this.showWrist && this.layout !== 'quad'; }
 
   size() {
     const c = this.renderer.domElement;
@@ -149,13 +153,10 @@ export class Renderer {
   // Corner rectangle of the wrist view in CSS pixels (x, y from the bottom-left).
   wristRect() {
     const { W, H } = this.size();
-    const quad = this.layout === 'quad';
-    const w = Math.round(Math.min(quad ? 240 : 320, (quad ? 0.2 : 0.32) * W)), h = Math.round(w * 0.75);
-    // Bottom-left on wide screens; top-right on phones, where the task panel sits at the
-    // bottom; in the 4-view layout, the bottom-right corner of the 3D view.
+    const w = Math.round(Math.min(320, 0.32 * W)), h = Math.round(w * 0.75);
+    // Bottom-left on wide screens; top-right on phones, where the task panel sits at the bottom.
     let x = 16, y = 56;
-    if (quad) { x = Math.floor(W / 2) - w - 8; y = H - Math.floor(H / 2) + 8; }
-    else if (W < 700) { x = W - w - 16; y = H - h - 16; }
+    if (W < 700) { x = W - w - 16; y = H - h - 16; }
     return { x, y, w, h, top: H - y - h };
   }
 
@@ -251,7 +252,7 @@ export class Renderer {
     }
     r.setScissorTest(false);
     r.setViewport(0, 0, size.x, size.y);
-    if (this.showWrist) {
+    if (this.wristVisible) {
       const c = this.wristCam;
       setPose(this.wrist, data.cam_xpos.subarray(3 * c, 3 * c + 3), data.cam_xmat.subarray(9 * c, 9 * c + 9));
       this.wrist.updateMatrixWorld(true);

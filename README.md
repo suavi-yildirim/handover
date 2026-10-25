@@ -58,7 +58,7 @@ Then open <http://localhost:8000>.
 | Space | open / close the gripper |
 | Shift | slow, precise moves |
 | C | show / hide the wrist camera view |
-| V | switch between one 3D view and four views (3D, top, front, side) |
+| V | switch between one 3D view and four views (front, top, 3D, side) |
 | R | reset the level |
 | 1 / 2 / 3 | switch task |
 | Mouse | orbit and zoom the camera |
@@ -69,8 +69,9 @@ objects best about 30 cm out from the robot, so that is where the objects sit. H
 an object with the jaws open, lower them around it, and close. If you steer somewhere the
 arm can't reach at the current tilt, the gripper stops (or slides along the reach limit)
 and the status bar says "out of reach"; tilting the gripper down (I) reaches closer in.
-Press V for four views at once, like a CAD drawing: the 3D view plus flat top, front and
-side views (with the room hidden), which make the gripper's height and reach easy to judge.
+Press V for four views at once, like a CAD drawing: flat front (from behind the robot), top
+and side views (with the room hidden) plus the 3D view at the bottom left, which make the
+gripper's height and reach easy to judge. The wrist camera view is hidden in this layout.
 These views only help the player; the recorded data and dataset cameras don't change.
 
 Pick a task in the task panel (or press 1, 2 or 3):

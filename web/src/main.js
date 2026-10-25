@@ -88,7 +88,7 @@ async function main() {
 
   const wristLabel = $('wrist-label');
   function placeWristLabel() {
-    wristLabel.hidden = !view.showWrist;
+    wristLabel.hidden = !view.wristVisible;
     const r = view.wristRect(), css = `${r.x + 6}px,${r.top + 4}px`;
     if (wristLabel.dataset.at !== css) {
       wristLabel.dataset.at = css;
