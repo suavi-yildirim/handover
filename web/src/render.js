@@ -2,6 +2,7 @@
 // frame only copies world poses (geom_xpos / geom_xmat) from the simulation.
 import * as THREE from 'three';
 import { OrbitControls } from '../vendor/three/OrbitControls.js';
+import { materialFor, setupRenderer, addLights, bakeEnvironment } from './look.js';
 
 const GEOM = { PLANE: 0, HFIELD: 1, SPHERE: 2, CAPSULE: 3, ELLIPSOID: 4, CYLINDER: 5, BOX: 6, MESH: 7 };
 const VISIBLE_GROUPS = new Set([0, 1, 2]); // groups 3+ are collision-only in the SO-101 model
@@ -58,11 +59,10 @@ export class Renderer {
     this.sim = sim;
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    r.shadowMap.enabled = true;
-    r.shadowMap.type = THREE.PCFShadowMap;
+    setupRenderer(r);
 
     const scene = this.scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xdfe6ea);
+    scene.background = new THREE.Color().setRGB(0.93, 0.92, 0.9, THREE.SRGBColorSpace);
     THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.01, 20);
@@ -73,15 +73,7 @@ export class Renderer {
     this.controls.enableKeys = false;
     this.controls.update();
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a66, 1.1));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-    sun.position.set(0.5, -0.6, 1.5);
-    sun.target.position.set(0.15, 0, 0);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(sun.shadow.camera, { left: -0.6, right: 0.6, top: 0.6, bottom: -0.6, near: 0.1, far: 4 });
-    sun.shadow.bias = -0.0005;
-    scene.add(sun, sun.target);
+    addLights(scene, sim.model, sim.data); // the level's own MJCF lights
 
     this.buildGeoms();
     this.buildSites();
@@ -107,12 +99,15 @@ export class Renderer {
       if (rgba[3] === 0) continue;
       const geo = geometryFor(model, g);
       if (!geo) continue;
-      const mesh = new THREE.Mesh(geo, material(rgba));
+      const mesh = new THREE.Mesh(geo, materialFor(model, g));
       mesh.matrixAutoUpdate = false;
+      // Geoms welded to the world (walls, furniture) never move: pose them once.
+      const fixed = model.body_weldid[model.geom_bodyid[g]] === 0;
+      if (fixed) setPose(mesh, this.sim.data.geom_xpos.subarray(3 * g, 3 * g + 3), this.sim.data.geom_xmat.subarray(9 * g, 9 * g + 9));
       mesh.castShadow = model.geom_type[g] !== GEOM.PLANE && rgba[3] >= 1;
       mesh.receiveShadow = true;
       this.scene.add(mesh);
-      this.geoms.push([g, mesh]);
+      if (!fixed) this.geoms.push([g, mesh]);
     }
   }
 
@@ -161,6 +156,7 @@ export class Renderer {
       this.marker.position.set(target[0], target[1], target[2]);
       this.shadowDot.position.set(target[0], target[1], 0.001);
     }
+    if (!this.envBaked) { bakeEnvironment(this.renderer, this.scene); this.envBaked = true; }
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }

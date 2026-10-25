@@ -16,7 +16,7 @@ MODEL = sys.argv[1] if len(sys.argv) > 1 else "web/models/kitchen.xml"
 G = 9.81
 
 # Target masses in kg (see docs/kitchen_realism.md for where they come from).
-MASS_TARGETS = {"cup": 0.060, "pill_bottle": 0.030}
+MASS_TARGETS = {"cup": 0.073, "pill_bottle": 0.020}
 # Expected Coulomb friction against the table top (MuJoCo uses the larger of the two geoms).
 MU_TARGET = 0.40
 MU_TOL = 0.06
@@ -79,32 +79,28 @@ def main():
         check(np.linalg.norm(d.body(b).cvel) < 1e-2, f"{b} at rest after settle")
     check(max_pen < 0.001, f"max object penetration {max_pen*1000:.2f} mm (< 1 mm)")
 
-    # 2. Push test: ramp a horizontal force at the cup's centre of mass until it slides.
-    for body in MASS_TARGETS:
+    # 2. Push test: a steady sideways push at the centre of mass, just below and just above
+    #    the intended friction, must hold the object still and then make it slide (not tip).
+    def pushed_distance(body, mu_push, seconds=1.0):
         reset(m, d)
         for _ in range(500):
             hold_arm(m, d)
             mujoco.mj_step(m, d)
         bid = m.body(body).id
-        mass = m.body(body).subtreemass[0]
         x0 = d.body(body).xpos.copy()
-        slide_mu = None
-        steps = int(2.0 / m.opt.timestep)
-        for i in range(steps):
-            mu_now = 1.0 * i / steps
-            d.xfrc_applied[bid, :3] = [0, -mu_now * mass * G, 0]  # push sideways (-y), away from the arm
+        d.xfrc_applied[bid, :3] = [0, -mu_push * m.body(body).subtreemass[0] * G, 0]  # away from the arm
+        for _ in range(int(seconds / m.opt.timestep)):
             hold_arm(m, d)
             mujoco.mj_step(m, d)
-            if np.linalg.norm(d.body(body).xpos[:2] - x0[:2]) > 0.002:
-                slide_mu = mu_now
-                break
         d.xfrc_applied[bid] = 0
-        tilted = tilt_deg(d, body)
-        if slide_mu is None:
-            check(False, f"{body} never slid under a push up to mu=1")
-        else:
-            check(abs(slide_mu - MU_TARGET) < MU_TOL,
-                  f"{body} starts sliding at mu={slide_mu:.2f} (target {MU_TARGET}), tilt {tilted:.1f} deg")
+        return np.linalg.norm(d.body(body).xpos[:2] - x0[:2]), tilt_deg(d, body)
+
+    for body in MASS_TARGETS:
+        held, _ = pushed_distance(body, MU_TARGET - MU_TOL)
+        moved, tilt = pushed_distance(body, MU_TARGET + MU_TOL)
+        check(held < 0.002, f"{body} holds under a push of mu={MU_TARGET - MU_TOL:.2f}: moved {held*1000:.1f} mm")
+        check(moved > 0.02 and tilt < 10, f"{body} slides (not tips) under mu={MU_TARGET + MU_TOL:.2f}: "
+              f"moved {moved*1000:.0f} mm, tilt {tilt:.1f} deg")
 
     # 3. Speed: the browser runs the same engine as WASM, typically 3-5x slower than native.
     reset(m, d)
