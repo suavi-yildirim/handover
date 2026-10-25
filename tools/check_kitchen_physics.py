@@ -20,6 +20,9 @@ MASS_TARGETS = {"cup": 0.073, "pill_bottle": 0.020}
 # Expected Coulomb friction against the table top (MuJoCo uses the larger of the two geoms).
 MU_TARGET = 0.40
 MU_TOL = 0.06
+# Real SO-101 follower torque limits in N.m: 7.4 V STS3215 stall torque, gripper capped at 50%.
+ARM_TORQUE = {"shoulder_pan": 1.91, "shoulder_lift": 1.91, "elbow_flex": 1.91,
+              "wrist_flex": 1.91, "wrist_roll": 1.91, "gripper": 0.95}
 
 failures = []
 
@@ -102,7 +105,33 @@ def main():
         check(moved > 0.02 and tilt < 10, f"{body} slides (not tips) under mu={MU_TARGET + MU_TOL:.2f}: "
               f"moved {moved*1000:.0f} mm, tilt {tilt:.1f} deg")
 
-    # 3. Speed: the browser runs the same engine as WASM, typically 3-5x slower than native.
+    # 3. Robot strength: torque limits match the real servos, and the arm can hold the
+    #    heaviest object anywhere above the table without hitting them.
+    limits = {m.actuator(i).name: m.actuator_forcerange[i, 1] for i in range(m.nu)}
+    for name, want in ARM_TORQUE.items():
+        got = limits.get(name)
+        check(got is not None and m.actuator_forcelimited[m.actuator(name).id] and abs(got - want) < 1e-6,
+              f"{name} torque limit {got} N.m (real servo: {want})")
+    grip = m.body("gripper").id
+    m.body_mass[grip] += max(MASS_TARGETS.values())
+    mujoco.mj_setConst(m, d)
+    rng = np.random.default_rng(0)
+    arm = [m.actuator_trnid[m.actuator(n).id, 0] for n in ARM_TORQUE if n != "gripper"]
+    worst = 0.0
+    for _ in range(5000):
+        mujoco.mj_resetData(m, d)
+        for j in arm:
+            d.qpos[m.jnt_qposadr[j]] = rng.uniform(*m.jnt_range[j])
+        mujoco.mj_forward(m, d)
+        if d.site("gripperframe").xpos[2] < 0:
+            continue
+        worst = max(worst, max(abs(d.qfrc_bias[m.jnt_dofadr[j]]) / ARM_TORQUE[m.joint(j).name] for j in arm))
+    m.body_mass[grip] -= max(MASS_TARGETS.values())
+    mujoco.mj_setConst(m, d)
+    check(worst < 0.8, f"holding a {max(MASS_TARGETS.values())*1000:.0f} g object, worst gravity load is "
+          f"{worst*100:.0f}% of the torque limit (< 80%)")
+
+    # 4. Speed: the browser runs the same engine as WASM, typically 3-5x slower than native.
     reset(m, d)
     n = 4000
     t = time.perf_counter()

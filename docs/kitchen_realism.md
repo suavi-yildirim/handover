@@ -37,11 +37,27 @@ Inertias are computed by `tools/kitchen_inertia.py`.
 |---|---|---|
 | Cup / bottle on table or tray | 0.4 | Glazed ceramic or PP plastic on lacquered wood / melamine is about 0.3-0.5. Previously 1.0, which made objects tip over instead of sliding |
 | Objects on floor tiles | 0.6 | |
-| Gripper jaws on objects | 1.0 | From the Menagerie SO-101 (jaw geoms have contact priority). Real printed PLA jaws are closer to 0.3-0.4; most SO-101 owners add grip tape. Revisit when we validate on a real arm |
+| Gripper jaws on objects | 0.4 | Bare 3D-printed PLA jaws on ceramic or plastic (was 1.0 in Menagerie). With grip tape on the real jaws, raise to about 0.9 |
 
 Torsional friction 0.004 m (about mu times the contact patch radius) and rolling
 friction 0.0001 m (hard objects). `solref 0.01 1` on the objects keeps resting
 penetration under 0.2 mm at the 2 ms timestep.
+
+## Robot strength (web/models/so101/so101.xml)
+
+The simulated arm must not be stronger than the real one, or players record motions
+a real SO-101 can't repeat.
+
+| Setting | Value | Why |
+|---|---|---|
+| Arm joint torque limit | 1.91 N.m | Stall torque of the 7.4 V STS3215 (1/345 gear, 19.5 kg.cm). The 12 V servo gives 2.94 N.m, which is what Menagerie uses. We use the weaker one, so anything recorded is possible on either real arm |
+| Gripper torque limit | 0.95 N.m | LeRobot's SO-101 follower sets the gripper's Max_Torque_Limit to 50% so it can hold objects without overheating |
+| Position gains | kp 998, kv 2.73 (Menagerie) | They assume LeRobot's P coefficient of 16. Not system-identified yet |
+| Backlash | none | Menagerie defines 0.5 deg backlash but applies it to no joint. Leave it until there is a real arm to measure |
+
+Margins: holding the 73 g cup, the worst static gravity torque anywhere above the
+table is 1.15 N.m (shoulder lift), 60% of the limit. All task tests pass with these
+limits, and still pass with jaw friction 0.3 or a 0.6 N.m gripper.
 
 ## Checks
 
