@@ -10,7 +10,7 @@
 
 const DEG = Math.PI / 180;
 
-function quatFromEuler(alpha, beta, gamma) {
+export function quatFromEuler(alpha, beta, gamma) {
   // W3C DeviceOrientation: intrinsic Z-X'-Y'' rotations.
   const [a, b, g] = [alpha * DEG / 2, beta * DEG / 2, gamma * DEG / 2];
   const cA = Math.cos(a), sA = Math.sin(a);
@@ -24,7 +24,7 @@ function quatFromEuler(alpha, beta, gamma) {
   ];
 }
 
-function mul(p, q) {
+export function mul(p, q) {
   const [pw, px, py, pz] = p, [qw, qx, qy, qz] = q;
   return [
     pw * qw - px * qx - py * qy - pz * qz,
@@ -34,7 +34,13 @@ function mul(p, q) {
   ];
 }
 
-const conj = ([w, x, y, z]) => [w, -x, -y, -z];
+export const conj = ([w, x, y, z]) => [w, -x, -y, -z];
+
+// Rotate vector v by unit quaternion q.
+export function rotate(q, v) {
+  const r = mul(mul(q, [0, v[0], v[1], v[2]]), conj(q));
+  return [r[1], r[2], r[3]];
+}
 
 function rotationVector(q) {
   let [w, x, y, z] = q;

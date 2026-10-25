@@ -89,6 +89,19 @@ The first time, the phone warns about the certificate because it is a self-signe
 for your Mac: tap *Show Details > visit this website* (iPhone) or *Advanced > Proceed*
 (Android). If macOS asks whether Python may accept incoming connections, allow it.
 
+The phone opens in **Motion** mode: hold *Hold to move* and move the phone, let go to
+reposition your hand (like lifting a mouse). Two styles, switched with the *Style* button:
+
+| Style | What moves the gripper |
+|---|---|
+| Aim (default) | turn the phone left / right to slide, tip it up / down to reach farther / closer, turn it like a key to roll the wrist; the slider sets the height |
+| Push β | move the phone itself and the gripper follows in 3D. Experimental: phone accelerometers drift, so short moves work best |
+
+Hold the phone flat (top edge toward the screen) or upright (back toward the screen); both
+work. True 6-DoF tracking of an iPhone needs a native ARKit app, which is a later step.
+
+*Mode: Sticks* switches to on-screen controls:
+
 | Phone | Action |
 |---|---|
 | Left joystick | move the gripper (relative to the camera, like WASD) |
@@ -160,7 +173,7 @@ web/
     recorder.js         episode recording (30 fps raw sim state)
     render.js           three.js rendering of the MuJoCo scene
     main.js             game loop and HUD
-  phone/                phone controller page (joystick, tilt, Grip) + demo.html
+  phone/                phone controller page (motion, joystick, tilt, Grip) + demo.html
   models/
     kitchen.xml         level 1: kitchen table, cup, tray, medicine bottle, glasses case
     so101/              SO-101 arm (MuJoCo Menagerie, Apache-2.0)
