@@ -97,19 +97,17 @@ The first time, the phone warns about the certificate because it is a self-signe
 for your Mac: tap *Show Details > visit this website* (iPhone) or *Advanced > Proceed*
 (Android). If macOS asks whether Python may accept incoming connections, allow it.
 
-The phone opens in **Motion** mode: hold *Hold to move* and move the phone, let go to
-reposition your hand (like lifting a mouse). Two styles, switched with the *Style* button:
+The first time, the phone opens a one-minute **setup**: you teach it six moves the way you
+like to hold the phone, three turns (roll the wrist, tilt the gripper down, swing the arm
+right) and three slides (move the phone right, away, up). Redo it any time with *Setup*.
+Setup results are also saved on the Mac in `.phone_logs/`.
 
-| Style | What moves the gripper |
-|---|---|
-| Aim (default) | tilt it like a joystick: tip the top edge away to go forward, dip the right side to go right, turn the phone right to roll the wrist clockwise; the slider sets the height |
-| Push β | move the phone itself and the gripper follows in 3D. Experimental: phone accelerometers drift, so short moves work best |
-
-Hold the phone flat (screen up) or upright (screen facing you); both work. If the moves feel
-wrong, tap **Axes** on the phone: it shows live what the phone's sensors report and what each
-move does to the gripper, and lets you teach your own three moves (right, forward, roll) once.
-Those results are also saved on the Mac in `.phone_logs/`. True 6-DoF tracking of an iPhone
-needs a native ARKit app, which is a later step.
+Then, in **Motion** mode, hold *Hold to move* and move the phone; let go to reposition your
+hand (like lifting a mouse). Turns drive the wrist and swing the arm sideways; slides move
+the gripper. Slides come from the accelerometer, which drifts, so short moves work best;
+turn them off with *Slides* and use the height slider instead. *Speed* switches between
+Slow, Normal and Fast. True 6-DoF tracking of an iPhone needs a native ARKit app, which is a
+later step.
 
 *Mode: Sticks* switches to on-screen controls:
 

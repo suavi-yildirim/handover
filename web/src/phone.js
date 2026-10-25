@@ -25,7 +25,7 @@ const DEFAULTS = {
   // The phone reports clockwise roll (as the player sees it) as positive; on the
   // game's camera a positive teleop rollRate turns the gripper counter-clockwise.
   rollSign: -1,
-  aimSpeed: 0.3,     // m/s cap when moving the phone itself (motion mode)
+  aimSpeed: 0.12,    // m/s cap when moving the phone itself (motion mode), a bit under the keyboard
   aimGain: 8,        // 1/s, how hard the gripper servos toward where the phone says
   staleMs: 250,      // no message for this long -> stop moving (phone locked, Wi-Fi hiccup)
 };
@@ -55,7 +55,7 @@ export class PhoneInput {
     this._phoneGrip = null;    // grip value in the phone's previous message
     this.phones = 0;
     this.applied = { pitch: 0, roll: 0, center: null };
-    this.aimApplied = { id: null, x: 0, y: 0, z: 0, roll: 0 };
+    this.aimApplied = { id: null, x: 0, y: 0, z: 0, roll: 0, pitch: 0 };
     this.ws = null;
     this._retry = 1000;
     this._listeners = new Set();
@@ -109,7 +109,7 @@ export class PhoneInput {
     if (!aim) {
       m.id = null;
     } else if (m.id !== aim.id) {
-      Object.assign(m, { id: aim.id, x: 0, y: 0, z: 0, roll: 0 });
+      Object.assign(m, { id: aim.id, x: 0, y: 0, z: 0, roll: 0, pitch: 0 });
     } else {
       let d = [aim.pos.x - m.x, aim.pos.y - m.y, aim.pos.z - m.z].map((e) => e * o.aimGain);
       const n = Math.hypot(...d);
@@ -123,6 +123,9 @@ export class PhoneInput {
       const rr = clamp(o.wristGain * (aim.roll - m.roll), o.rollRate);
       m.roll += rr * dt;
       rollRate += rr;
+      const pr = clamp(o.wristGain * ((aim.pitch || 0) - m.pitch), o.pitchRate);
+      m.pitch += pr * dt;
+      pitchRate += pr;
     }
     return { v, pitchRate, rollRate: o.rollSign * rollRate };
   }

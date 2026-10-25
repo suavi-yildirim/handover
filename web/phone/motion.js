@@ -1,53 +1,56 @@
-// Move the gripper by moving the phone.
+// Move the gripper by moving the phone, using the player's own moves from the
+// setup page (calibration.js).
 //
 // Works like a mouse with a button: hold "Hold to move", move the phone, let
-// go to reposition your hand. Two ways to read the motion:
+// go to reposition your hand. While held, relative to the moment of the press:
 //
-//   aim:  gyro-based, steady. Tilt the phone like a joystick: tip the top edge
-//         away to go forward, dip the right side to go right, turn the phone
-//         right to roll the wrist clockwise. Height comes from the slider. The
-//         player can teach their own moves on axes.html instead.
-//   push: accelerometer-based, experimental. Physically move the phone and the
-//         gripper follows in 3D. Phone accelerometers drift, so this works for
-//         short moves only.
+//   roll turn  -> wrist roll        (1:1 at Normal speed)
+//   pitch turn -> wrist pitch       (1:1 at Normal speed)
+//   yaw turn   -> arm swings sideways
+//   slides     -> gripper moves right / forward / up. Read from the
+//                 accelerometer, which drifts, so short moves work best.
 //
-// Output, all relative to the moment the button was pressed, in the player's
-// frame (x right, y forward/away from you, z up):
-//   pos  { x, y, z }  metres for the gripper to move
-//   roll              radians of wrist roll
+// Output in the player's frame (x right, y forward/away, z up):
+//   pos { x, y, z } metres, roll and pitch radians.
 
-import { quatFromEuler, rotate } from './tilt.js';
-import { Calibration, PRESETS, relativeRotation } from './calibration.js';
+import { quatFromEuler } from './tilt.js';
+import { Calibration, relativeRotation } from './calibration.js';
 
-const AIM_GAIN = 0.4;        // metres of gripper travel per radian of phone turn (~0.7 cm per degree)
-const PUSH_GAIN = 1.5;       // gripper metres per metre of hand motion (the leaky estimate undershoots)
-const PUSH_LEAK = 0.6;       // s; velocity estimate decays toward zero, which limits drift
-const PUSH_DEADBAND = 0.08;  // m/s²; sensor noise below this is ignored
+const YAW_GAIN = 0.15;      // metres sideways per radian of yaw (~2.6 cm per 10°)
+const SLIDE_GAIN = 0.7;     // gripper metres per metre of hand motion
+const SLIDE_LEAK = 0.5;     // s; the velocity estimate decays toward zero, which limits drift
+const SLIDE_DEADBAND = 0.12; // m/s²; sensor noise below this is ignored
 
-// The phone "points" along its top edge when held flat-ish, or out of its back
-// when held upright. Picked on each press, whichever is closer to level; Push
-// uses it to tell which way "forward" is.
-const TOP = [0, 1, 0];
-const BACK = [0, 0, -1];
-const BUILTIN = { flat: new Calibration(PRESETS.flat), upright: new Calibration(PRESETS.upright) };
+export const SPEEDS = { slow: 0.5, normal: 1, fast: 1.6 };
+
+// Used only if the player skipped setup: a phone held flat, screen up.
+const FALLBACK = new Calibration({
+  roll: [0, 1, 0], pitch: [-1, 0, 0], yaw: [0, 0, -1],
+  x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1],
+});
 
 export class Motion {
   constructor() {
-    this.mode = 'aim';
     this.enabled = false;
     this.available = false;
     this.held = false;
+    this.slide = true;    // use phone slides for x/y/z
+    this.speed = 1;       // SPEEDS multiplier
     this.clutch = 0;      // bumps on every press so the game can resync
     this.q = null;        // device -> world orientation
     this.pos = { x: 0, y: 0, z: 0 };
     this.roll = 0;
-    this.calibration = Calibration.load(); // learned from axes.html; null = built-in mapping
+    this.pitch = 0;
+    this.calibration = Calibration.load();
     this._onOrient = (e) => this._orient(e);
     this._onMotion = (e) => this._motion(e);
   }
 
+  get mapping() { return this.calibration || FALLBACK; }
+
   // Must be called from a tap: iPhone asks for permission here.
   async enable() {
+    if (this.enabled) return;
     if (!window.isSecureContext) throw new Error('Motion needs the https:// address (see the server window).');
     const events = [window.DeviceOrientationEvent, window.DeviceMotionEvent];
     if (!events.every(Boolean)) throw new Error('This browser has no motion sensor support.');
@@ -67,18 +70,11 @@ export class Motion {
     this.held = true;
     this.clutch++;
     this.q0 = this.q;
-    const top = rotate(this.q, TOP), back = rotate(this.q, BACK);
-    const flat = Math.abs(top[2]) <= Math.abs(back[2]);
-    this.pointer = flat ? TOP : BACK;
-    this.hold = flat ? 'flat' : 'upright';
-    // The player's frame: forward is where the phone pointed, flattened onto the floor.
-    const p = rotate(this.q0, this.pointer);
-    this.heading = Math.atan2(p[1], p[0]);
-    this.mapping = this.calibration || BUILTIN[this.hold];
     this.vel = [0, 0, 0];
     this.hand = [0, 0, 0];
+    this.sideFromYaw = 0;
     this.pos = { x: 0, y: 0, z: 0 };
-    this.roll = 0;
+    this.roll = this.pitch = 0;
     return true;
   }
 
@@ -86,35 +82,40 @@ export class Motion {
     this.held = false;
   }
 
+  _update() {
+    const k = this.speed, h = this.hand;
+    this.pos = {
+      x: this.sideFromYaw * k + h[0] * SLIDE_GAIN * k,
+      y: h[1] * SLIDE_GAIN * k,
+      z: h[2] * SLIDE_GAIN * k,
+    };
+  }
+
   _orient(e) {
     if (e.beta == null || e.gamma == null) return;
     this.available = true;
     this.q = quatFromEuler(e.alpha || 0, e.beta, e.gamma);
     if (!this.held) return;
-
-    // Split the rotation since the press into the three moves.
-    const s = this.mapping.split(relativeRotation(this.q0, this.q).rv);
-    this.roll = s.roll;
-    if (this.mode === 'aim') this.pos = { x: s.right * AIM_GAIN, y: s.forward * AIM_GAIN, z: 0 };
+    const t = this.mapping.turns(relativeRotation(this.q0, this.q).rv);
+    this.roll = t.roll * this.speed;
+    this.pitch = t.pitch * this.speed;
+    this.sideFromYaw = t.yaw * YAW_GAIN;
+    this._update();
   }
 
   _motion(e) {
-    if (!this.held || this.mode !== 'push' || !this.q) return;
+    if (!this.held || !this.slide) return;
     const a = e.acceleration; // gravity removed by the phone's own sensor fusion
     if (!a || a.x == null) return;
     // interval is ms per the spec, but older iOS reports seconds.
     const iv = e.interval > 1 ? e.interval / 1000 : e.interval || 1 / 60;
     const dt = Math.min(0.05, iv);
-    // Device -> world, then world -> player frame (rotate by -heading about z).
-    let w = rotate(this.q, [a.x, a.y, a.z]);
-    const c = Math.cos(this.heading), s = Math.sin(this.heading);
-    w = [w[0] * c + w[1] * s, -w[0] * s + w[1] * c, w[2]]; // [forward, left, up]
-    const acc = [-w[1], w[0], w[2]].map((v) => (Math.abs(v) < PUSH_DEADBAND ? 0 : v)); // [right, forward, up]
-    const k = Math.exp(-dt / PUSH_LEAK);
+    const acc = this.mapping.slides([a.x, a.y, a.z]).map((v) => (Math.abs(v) < SLIDE_DEADBAND ? 0 : v));
+    const leak = Math.exp(-dt / SLIDE_LEAK);
     for (let i = 0; i < 3; i++) {
-      this.vel[i] = (this.vel[i] + acc[i] * dt) * k;
+      this.vel[i] = (this.vel[i] + acc[i] * dt) * leak;
       this.hand[i] += this.vel[i] * dt;
     }
-    this.pos = { x: this.hand[0] * PUSH_GAIN, y: this.hand[1] * PUSH_GAIN, z: this.hand[2] * PUSH_GAIN };
+    this._update();
   }
 }

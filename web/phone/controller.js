@@ -9,11 +9,11 @@
 //     tilt,                     // tilt control on?
 //     grip,                     // true = closed
 //     aim }                     // while "Hold to move" is held, else null:
-//                               //   { id, pos: {x, y, z} metres, roll radians }, relative to the press
+//                               //   { id, pos: {x, y, z} metres, roll, pitch radians }, relative to the press
 
 import { Stick } from './sticks.js';
 import { Tilt } from './tilt.js';
-import { Motion } from './motion.js';
+import { Motion, SPEEDS } from './motion.js';
 
 const SEND_HZ = 30;
 const $ = (id) => document.getElementById(id);
@@ -27,7 +27,15 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 let mode = store.get('handover.mode', 'motion');   // 'motion' | 'sticks'
-motion.mode = store.get('handover.motionKind', 'aim'); // 'aim' | 'push'
+motion.slide = store.get('handover.slide', 'on') === 'on';
+let speed = store.get('handover.speed', 'normal');
+if (!SPEEDS[speed]) speed = 'normal';
+motion.speed = SPEEDS[speed];
+
+// First open: send the player through setup until their moves are learned.
+if (mode === 'motion' && !motion.calibration && !new URLSearchParams(location.search).has('skip')) {
+  location.replace('./axes.html');
+}
 let grip = false;
 let seq = 0;
 let rtt = null;
@@ -73,23 +81,23 @@ $('tilt').addEventListener('click', async () => {
 
 // --- Motion mode ----------------------------------------------------------
 
-const KIND_HELP = {
-  aim: 'Tilt like a joystick: tip the top away to go forward, dip the right side to go right, turn the phone right to roll clockwise. Slider = height.',
-  push: 'Experimental: move the phone itself and the gripper follows. Short moves work best. Turn the phone to roll the wrist.',
-};
+const SPEED_ORDER = ['slow', 'normal', 'fast'];
+const SPEED_LABEL = { slow: 'Slow', normal: 'Normal', fast: 'Fast' };
 
 function applyMode() {
   const m = mode === 'motion';
   $('mode').textContent = m ? 'Mode: Motion' : 'Mode: Sticks';
-  $('kind').hidden = !m;
-  $('axesLink').hidden = !m;
-  $('axesLink').textContent = motion.calibration ? 'Axes ✓' : 'Axes';
-  $('kind').textContent = motion.mode === 'aim' ? 'Style: Aim' : 'Style: Push β';
+  $('kind').hidden = $('speed').hidden = $('axesLink').hidden = !m;
+  $('axesLink').textContent = motion.calibration ? 'Setup ✓' : 'Setup';
+  $('kind').textContent = motion.slide ? 'Slides: on' : 'Slides: off';
+  $('speed').textContent = `Speed: ${SPEED_LABEL[speed]}`;
   $('tilt').hidden = $('recenter').hidden = m;
   $('clutch').hidden = !m;
   $('moveStick').hidden = m;
-  $('clutchHelp').textContent = motion.mode === 'aim' && motion.calibration
-    ? 'Using the moves you taught on the Axes page. Slider = height.' : KIND_HELP[motion.mode];
+  $('clutchHelp').textContent = (motion.calibration
+    ? 'Uses the moves you taught in Setup: turns move the wrist and swing the arm'
+    : 'Not set up yet (tap Setup). Turns move the wrist and swing the arm')
+    + (motion.slide ? ', sliding the phone moves the gripper.' : '. Slides are off; use the slider for height.');
 }
 
 async function ensureMotion() {
@@ -114,8 +122,15 @@ $('mode').addEventListener('click', async () => {
 });
 
 $('kind').addEventListener('click', () => {
-  motion.mode = motion.mode === 'aim' ? 'push' : 'aim';
-  store.set('handover.motionKind', motion.mode);
+  motion.slide = !motion.slide;
+  store.set('handover.slide', motion.slide ? 'on' : 'off');
+  applyMode();
+});
+
+$('speed').addEventListener('click', () => {
+  speed = SPEED_ORDER[(SPEED_ORDER.indexOf(speed) + 1) % SPEED_ORDER.length];
+  store.set('handover.speed', speed);
+  motion.speed = SPEEDS[speed];
   applyMode();
 });
 
@@ -159,7 +174,7 @@ function renderStatus() {
   const deg = (r) => `${Math.round(r * 180 / Math.PI)}°`.padStart(4);
   const cm = (m) => `${Math.round(m * 100)}`.padStart(3);
   $('readout').textContent = motion.held
-    ? `x${cm(motion.pos.x)} y${cm(motion.pos.y)} z${cm(motion.pos.z)} cm roll ${deg(motion.roll)}`
+    ? `x${cm(motion.pos.x)} y${cm(motion.pos.y)} z${cm(motion.pos.z)} cm roll ${deg(motion.roll)} pitch ${deg(motion.pitch)}`
     : tilt.enabled ? `pitch ${deg(tilt.pitch)} roll ${deg(tilt.roll)}` : '';
 }
 
@@ -215,7 +230,7 @@ function send(stop = false) {
     center: tilt.centerId,
     tilt: tilt.enabled && !hidden,
     grip,
-    aim: motion.held && !hidden ? { id: motion.clutch, pos: motion.pos, roll: motion.roll } : null,
+    aim: motion.held && !hidden ? { id: motion.clutch, pos: motion.pos, roll: motion.roll, pitch: motion.pitch } : null,
   }));
 }
 
