@@ -8,6 +8,7 @@ import path from 'node:path';
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const { Sim } = await import(path.join(WEB, 'src/sim.js'));
 const { Teleop } = await import(path.join(WEB, 'src/teleop.js'));
+const { CupOnTrayTask } = await import(path.join(WEB, 'src/task.js'));
 
 // Sim loads the level over HTTP like the browser does, so serve web/ briefly.
 const server = http.createServer(async (req, res) => {
@@ -20,12 +21,14 @@ const FPS = 60, SPEED = 0.12, Z = 0.035; // grasp height of the cup, meters
 const sim = await Sim.create(`${base}/models/kitchen.xml`);
 server.close();
 const teleop = new Teleop(sim);
+const task = new CupOnTrayTask(sim, teleop.ik);
 
 const bodyPos = (n) => { const i = sim.id('BODY', n); return Array.from(sim.data.xpos.slice(3 * i, 3 * i + 3)); };
 let lag = 0;
 function frame(dt) {
   teleop.apply(dt);
   for (lag += dt; lag >= sim.dt; lag -= sim.dt) sim.step();
+  task.update();
 }
 // Move the target in a straight line at SPEED, then hold.
 function moveTo(pos, hold = 0.6) {
@@ -55,6 +58,8 @@ const checks = [
   ['cup over tray', Math.abs(end[0] - tray[0]) < 0.06 && Math.abs(end[1] - tray[1]) < 0.045],
   ['cup resting on tray floor', end[2] > 0 && end[2] < 0.02],
   ['cup upright', upright > 0.97],
+  ['task reports success', task.state === 'success'],
 ];
+console.log('score', JSON.stringify(task.result));
 for (const [name, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
 process.exit(checks.every(([, ok]) => ok) ? 0 : 1);

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone control test</title>
+<style>
+  body { margin: 0; background: #14171c; color: #e8ecf1; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { color: #8b95a3; margin: 0 0 12px; }
+  canvas { width: 100%; background: #1f242c; border-radius: 12px; display: block; }
+  pre { font: 12px ui-monospace, Menlo, monospace; color: #8b95a3; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Phone control test</h1>
+  <p>Stand-in for the game: shows what the phone sends, without the robot. Top-down view of the gripper,
+     height on the right, wrist angles and grip in the corner. R resets.</p>
+  <canvas id="c" width="720" height="420"></canvas>
+  <pre id="log"></pre>
+</main>
+<script type="module">
+  import { PhoneInput } from '../src/phone.js';
+
+  const state = { p: [0, 0, 0.1], pitch: 0, roll: 0, grip: false };
+  const phone = new PhoneInput({ onGrip: (closed) => { state.grip = closed; } });
+  phone.showBadge();
+  window.handover = { phone, state };
+  addEventListener('keydown', (e) => {
+    if (e.key === 'r') Object.assign(state, { p: [0, 0, 0.1], pitch: 0, roll: 0 });
+  });
+
+  const c = document.getElementById('c');
+  const g = c.getContext('2d');
+  const axes = { forward: [1, 0], right: [0, -1] }; // camera behind the robot
+  let last = performance.now();
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    const cmd = phone.command(axes, dt);
+    for (let i = 0; i < 3; i++) state.p[i] += cmd.v[i] * dt;
+    state.p[0] = Math.max(-0.3, Math.min(0.3, state.p[0]));
+    state.p[1] = Math.max(-0.3, Math.min(0.3, state.p[1]));
+    state.p[2] = Math.max(0, Math.min(0.4, state.p[2]));
+    state.pitch += cmd.pitchRate * dt;
+    state.roll += cmd.rollRate * dt;
+    draw(cmd);
+    requestAnimationFrame(frame);
+  }
+
+  function draw(cmd) {
+    const W = c.width, H = c.height, s = 600; // px per metre
+    g.clearRect(0, 0, W, H);
+    // Top-down: world +x (forward) is up the screen, world +y is left.
+    const cx = W * 0.4, cy = H / 2;
+    g.strokeStyle = '#333a45';
+    g.strokeRect(cx - 0.3 * s, cy - 0.3 * s, 0.6 * s, 0.6 * s);
+    const x = cx - state.p[1] * s, y = cy - state.p[0] * s;
+    g.save();
+    g.translate(x, y);
+    g.rotate(state.roll);
+    g.fillStyle = state.grip ? '#ff9f43' : '#4fb3ff';
+    const open = state.grip ? 6 : 16;
+    g.fillRect(-open - 6, -14, 6, 28);
+    g.fillRect(open, -14, 6, 28);
+    g.fillRect(-open - 6, 10, 2 * open + 12, 5);
+    g.restore();
+    // Height bar.
+    const bx = W * 0.82, top = 40, bot = H - 40;
+    g.fillStyle = '#333a45';
+    g.fillRect(bx, top, 12, bot - top);
+    g.fillStyle = '#4fb3ff';
+    const hy = bot - (state.p[2] / 0.4) * (bot - top);
+    g.fillRect(bx - 6, hy - 3, 24, 6);
+    g.fillStyle = '#8b95a3';
+    g.font = '12px ui-monospace, Menlo, monospace';
+    g.fillText('height', bx - 16, top - 10);
+    // Pitch dial.
+    const px = W * 0.82 + 70, py = 70;
+    g.strokeStyle = '#8b95a3';
+    g.beginPath(); g.moveTo(px, py); g.lineTo(px + 30 * Math.cos(state.pitch), py + 30 * Math.sin(state.pitch)); g.stroke();
+    g.fillText('pitch', px - 10, py + 50);
+
+    const deg = (r) => (r * 180 / Math.PI).toFixed(0).padStart(4);
+    document.getElementById('log').textContent =
+      `phone ${phone.connected ? 'connected' : 'not connected'}   steering ${phone.active}\n`
+      + `gripper  x ${state.p[0].toFixed(3)}  y ${state.p[1].toFixed(3)}  z ${state.p[2].toFixed(3)} m   `
+      + `pitch ${deg(state.pitch)}°  roll ${deg(state.roll)}°  grip ${state.grip ? 'closed' : 'open'}\n`
+      + `command  v [${cmd.v.map((n) => n.toFixed(3)).join(', ')}] m/s  `
+      + `pitchRate ${cmd.pitchRate.toFixed(2)}  rollRate ${cmd.rollRate.toFixed(2)} rad/s`;
+  }
+
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>
