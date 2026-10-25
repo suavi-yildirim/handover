@@ -34,7 +34,7 @@ Score = 100 × Σ weight × metric. Each metric is between 0 and 1.
 | No drops | 0.15 | 1 − 0.5 × number of times the cup was let go while more than 3 cm up and unsupported | Drops and regrasps are low-quality demos |
 
 Task id `cup_on_tray`, policy prompt "Put the cup on the tray." A scripted,
-straight-line demo scores about 95 (`node tests/pick_place.mjs`).
+straight-line demo (hover over the cup, lower the open jaws around it) scores about 96 (`node tests/pick_place.mjs`).
 
 ### Tuning notes
 
@@ -75,7 +75,7 @@ The episode **fails** if the bottle is let go while more than 3 cm up and unsupp
 | Gentle approach | 0.25 | 1 when the bottle first enters the zone below 5 cm/s, falling linearly to 0 at 25 cm/s | A handover must never jab at a person's hand |
 | Steady hold | 0.20 | 1 − mean bottle speed during the final hold / 3 cm/s | The person needs a still object to take |
 
-A scripted demo with a 4 cm/s final approach scores about 94 (`node tests/medication.mjs`).
+A scripted demo with a 4 cm/s final approach scores about 95 (`node tests/medication.mjs`).
 
 ## Task 3: Tidy a fall hazard (kitchen)
 
@@ -108,8 +108,18 @@ The episode **fails** if the case falls off the table.
 | Lifted, not pushed | 0.25 | share of the case's horizontal path traveled while held off the table: full marks at 90%, zero at 50% | Pushing things across a table is a poor, unsafe strategy to teach |
 | No drops | 0.15 | as task 1 | |
 
-A scripted demo scores about 87 (`node tests/fall_hazard.mjs`); its smoothness is lower
-because the carry swings the arm past its base.
+A scripted demo scores about 89 (`node tests/fall_hazard.mjs`); its smoothness is lower
+because the carry swings the arm around its base.
+
+## Scene layout and start pose
+
+The arm starts level with the wrist camera on top (wrist roll −90°), grasp point about
+15 cm above the table at (0.26, 0). A level SO-101 gripper reaches the table only about
+28 cm or more from the shoulder axis, so the objects sit about 30–36 cm out: cup
+(0.33, 0.11), medicine bottle (0.34, −0.03), tray (0.32, −0.17), glasses case (0.22, 0.30),
+safe spot (0.12, −0.31), hand zone (0.12, 0.28, 0.12). Targets the arm can't reach at the
+commanded tilt are refused (the gripper slides along the reach limit or stops) instead of
+letting the IK fold the arm into a different pose.
 
 ## Episode tags and events
 

@@ -16,12 +16,13 @@ export const ROBOT = {
   // The site sits right at the fixed jaw; aim a few mm toward the moving jaw so the
   // fixed jaw clears objects on the way down.
   graspOffset: [0, 0, 0.008],
-  // World xy of the shoulder_pan axis; the gripper's yaw follows the target around it.
+  // World xy of the shoulder_pan axis; the reachable workspace is measured from it.
   panOrigin: [0.0388, 0.0],
   gripper: { open: 0.9, closed: -0.17, speed: 2.5 }, // rad and rad/s
   // Reachable box for the end-effector target, in the robot's frame (meters).
   workspace: { rMin: 0.08, rMax: 0.36, zMin: 0.005, zMax: 0.32 },
-  // Defaults: pitch 60 deg down with jaws horizontal works well for cups and bottles.
-  defaultPitch: Math.PI / 3,
-  defaultRoll: Math.PI / 2,
+  // Defaults: gripper level (pitch 0) with the wrist camera on top (roll -90 deg), so the
+  // jaws open sideways and close around objects from the side, a little farther out.
+  defaultPitch: 0,
+  defaultRoll: -Math.PI / 2,
 };

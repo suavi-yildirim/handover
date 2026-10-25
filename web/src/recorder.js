@@ -5,7 +5,7 @@
 import { ROBOT } from './robot.js';
 
 export const FORMAT_VERSION = 1;
-export const GAME_VERSION = '0.3.0';
+export const GAME_VERSION = '0.4.0';
 export const FPS = 30;
 
 const round = (x) => Math.round(x * 1e6) / 1e6;

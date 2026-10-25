@@ -1,10 +1,11 @@
 // End-effector IK for a 4-joint arm (+ directly driven wrist roll).
-// Damped least squares on a 6-row task: grasp-point position, plus the gripper's
-// pointing direction (weighted lower so position wins when both can't be met).
+// Damped least squares on a 4-row task: grasp-point position (3 rows) plus the gripper's
+// pitch, i.e. how far its pointing axis dips below horizontal. Yaw is left free: it follows
+// from shoulder_pan, so the 4 arm joints can meet all 4 rows exactly within reach.
 import { ROBOT } from './robot.js';
 
 const LAMBDA = 0.02;      // damping
-const ROT_WEIGHT = 0.3;   // pointing error weight relative to position (1 rad ~ 0.3 m)
+const PITCH_WEIGHT = 0.5; // pitch error weight relative to position (1 rad ~ 0.5 m)
 
 export class ArmIK {
   constructor(sim) {
@@ -29,19 +30,13 @@ export class ArmIK {
     return [0, 1, 2].map((i) => p[i] + R[3 * i] * o[0] + R[3 * i + 1] * o[1] + R[3 * i + 2] * o[2]);
   }
 
-  // Unit vector the gripper should point along: yaw toward the target, pitched down.
-  targetDir(pos, pitch) {
-    const yaw = Math.atan2(pos[1] - ROBOT.panOrigin[1], pos[0] - ROBOT.panOrigin[0]);
-    const c = Math.cos(pitch);
-    return [c * Math.cos(yaw), c * Math.sin(yaw), -Math.sin(pitch)];
-  }
-
   // Refine joint command q (length 4, modified in place) toward the target.
-  // Returns the remaining position error in meters.
+  // Returns the remaining position error in meters; this.pitchError holds the pitch error
+  // in radians.
   solve(q, pos, pitch, roll, iters = 6) {
     const { mj, model } = this.sim;
     const kin = this.kin, n = q.length, nv = model.nv;
-    const tdir = this.targetDir(pos, pitch);
+    const xzGoal = -Math.sin(pitch); // vertical component of the pointing axis
     kin.qpos.set(this.sim.data.qpos);
     kin.qpos[model.jnt_qposadr[this.sim.id('JOINT', ROBOT.rollJoint)]] = roll;
     let err = 0;
@@ -54,29 +49,23 @@ export class ArmIK {
       const jp = this.jacp.GetView(), jr = this.jacr.GetView();
       const R = kin.site_xmat.subarray(9 * this.site, 9 * this.site + 9);
       const x = [R[0], R[3], R[6]]; // site x axis in world
-      const e = [
-        pos[0] - p[0], pos[1] - p[1], pos[2] - p[2],
-        ROT_WEIGHT * (x[1] * tdir[2] - x[2] * tdir[1]),
-        ROT_WEIGHT * (x[2] * tdir[0] - x[0] * tdir[2]),
-        ROT_WEIGHT * (x[0] * tdir[1] - x[1] * tdir[0]),
-      ];
+      const e = [pos[0] - p[0], pos[1] - p[1], pos[2] - p[2], PITCH_WEIGHT * (xzGoal - x[2])];
       err = Math.hypot(e[0], e[1], e[2]);
-      // J: 6 x n, rows 0-2 position, 3-5 weighted rotation.
-      const J = [];
-      for (let r = 0; r < 6; r++) {
-        const src = r < 3 ? jp : jr, w = r < 3 ? 1 : ROT_WEIGHT, row = r % 3;
-        J.push(this.dadr.map((d) => w * src[row * nv + d]));
-      }
+      this.pitchError = Math.abs(Math.asin(Math.max(-1, Math.min(1, x[2]))) + pitch);
+      // J: 4 x n. Rows 0-2: position. Row 3: d(x_z)/dq = (omega x x)_z for each joint's
+      // angular velocity column omega.
+      const J = [0, 1, 2].map((row) => this.dadr.map((d) => jp[row * nv + d]));
+      J.push(this.dadr.map((d) => PITCH_WEIGHT * (jr[d] * x[1] - jr[nv + d] * x[0])));
       // Solve (J^T J + lambda^2 I) dq = J^T e.
       const A = [], b = [];
       for (let i = 0; i < n; i++) {
         A.push([]);
         let bi = 0;
-        for (let r = 0; r < 6; r++) bi += J[r][i] * e[r];
+        for (let r = 0; r < J.length; r++) bi += J[r][i] * e[r];
         b.push(bi);
         for (let k = 0; k < n; k++) {
           let s = i === k ? LAMBDA * LAMBDA : 0;
-          for (let r = 0; r < 6; r++) s += J[r][i] * J[r][k];
+          for (let r = 0; r < J.length; r++) s += J[r][i] * J[r][k];
           A[i].push(s);
         }
       }

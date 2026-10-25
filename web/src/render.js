@@ -86,8 +86,29 @@ export class Renderer {
       new THREE.MeshBasicMaterial({ color: 0xff3366, transparent: true, opacity: 0.6 }));
     scene.add(this.marker, this.shadowDot);
 
+    // Wrist camera picture-in-picture: what the gripper's own camera (wrist_cam, the
+    // dataset's observation.images.wrist) sees, for lining up grasps. MuJoCo and three.js
+    // cameras both look along their local -z with +y up, so the pose copies over directly.
+    this.wristCam = sim.id('CAMERA', 'wrist_cam');
+    this.showWrist = this.wristCam >= 0;
+    if (this.showWrist) {
+      const fovy = sim.model.cam_fovy[this.wristCam];
+      this.wrist = new THREE.PerspectiveCamera(fovy, 4 / 3, 0.005, 10); // 640 x 480 sensor
+      this.wrist.matrixAutoUpdate = false;
+    }
+
     this.resize();
     window.addEventListener('resize', () => this.resize());
+  }
+
+  // Corner rectangle of the wrist view in CSS pixels (x, y from the bottom-left).
+  wristRect() {
+    const c = this.renderer.domElement;
+    const W = c.clientWidth || window.innerWidth, H = c.clientHeight || window.innerHeight;
+    const w = Math.round(Math.min(320, 0.32 * W)), h = Math.round(w * 0.75);
+    // Bottom-left on wide screens; top-right on phones, where the task panel sits at the bottom.
+    const y = W < 700 ? H - h - 16 : 56, x = W < 700 ? W - w - 16 : 16;
+    return { x, y, w, h, top: H - y - h };
   }
 
   buildGeoms() {
@@ -158,6 +179,21 @@ export class Renderer {
     }
     if (!this.envBaked) { bakeEnvironment(this.renderer, this.scene); this.envBaked = true; }
     this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+    const r = this.renderer;
+    r.render(this.scene, this.camera);
+    if (this.showWrist) {
+      const c = this.wristCam;
+      setPose(this.wrist, data.cam_xpos.subarray(3 * c, 3 * c + 3), data.cam_xmat.subarray(9 * c, 9 * c + 9));
+      this.wrist.updateMatrixWorld(true);
+      const { x, y, w, h } = this.wristRect(), size = r.getSize(new THREE.Vector2());
+      this.marker.visible = this.shadowDot.visible = false;
+      r.setScissorTest(true);
+      r.setScissor(x, y, w, h);
+      r.setViewport(x, y, w, h);
+      r.render(this.scene, this.wrist);
+      r.setScissorTest(false);
+      r.setViewport(0, 0, size.x, size.y);
+      this.marker.visible = this.shadowDot.visible = true;
+    }
   }
 }

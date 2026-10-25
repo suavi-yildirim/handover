@@ -2,12 +2,11 @@
 //   node tests/medication.mjs [episode-out.jsonl]
 import { setup, episodeChecks, report } from './harness.mjs';
 
-const { sim, teleop, task, recorder, moveTo, bodyPos, sitePos } = await setup('bring_medication');
+const { sim, teleop, task, recorder, moveTo, reachIn, bodyPos, sitePos } = await setup('bring_medication');
 const Z = 0.035; // grasp height on the bottle, meters
 
 const bottle = bodyPos('pill_bottle'), zone = sitePos('hand_zone');
-moveTo([bottle[0], bottle[1], Z + 0.08]);
-moveTo([bottle[0], bottle[1], Z]);
+reachIn([bottle[0], bottle[1], Z]);
 teleop.setGrip(true); moveTo([bottle[0], bottle[1], Z], { hold: 1 });
 moveTo([bottle[0], bottle[1], Z + 0.1]);
 const lifted = bodyPos('pill_bottle')[2];

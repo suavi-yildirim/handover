@@ -2,12 +2,11 @@
 //   node tests/pick_place.mjs [episode-out.jsonl]
 import { setup, episodeChecks, report } from './harness.mjs';
 
-const { sim, teleop, task, recorder, moveTo, bodyPos } = await setup('cup_on_tray');
+const { sim, teleop, task, recorder, moveTo, reachIn, bodyPos } = await setup('cup_on_tray');
 const Z = 0.035; // grasp height on the cup, meters
 
 const cup = bodyPos('cup'), tray = bodyPos('tray');
-moveTo([cup[0], cup[1], Z + 0.08]);
-moveTo([cup[0], cup[1], Z]);
+reachIn([cup[0], cup[1], Z]);
 teleop.setGrip(true); moveTo([cup[0], cup[1], Z], { hold: 1 });
 moveTo([cup[0], cup[1], Z + 0.08]);
 const lifted = bodyPos('cup')[2];
