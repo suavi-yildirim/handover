@@ -101,6 +101,25 @@ Keyboard and phone work at the same time. The arm stops if the phone locks, swit
 or drops off Wi-Fi. `http://localhost:8000/phone/demo.html` shows what the phone sends
 without the robot, for checking the connection.
 
+### Control with a 3D mouse
+
+A 3Dconnexion SpaceMouse works in **Chrome or Edge** (they support WebHID; Safari doesn't).
+Click **Connect 3D mouse** under the key list and pick the device once; the page reconnects
+to it after that. If it doesn't show up or doesn't respond on a Mac, quit the 3Dconnexion
+driver app (3DxWare) so the browser can open the device.
+
+| 3D mouse | Action |
+|---|---|
+| Push / pull the cap | gripper forward / back (relative to the camera) |
+| Slide the cap left / right | gripper left / right |
+| Lift / press the cap | up / down |
+| Tilt the cap forward / back | tilt the gripper |
+| Twist the cap | roll the wrist |
+| Left button | open / close the gripper |
+| Right button | precise (slow) mode on / off |
+
+Keyboard, phone and 3D mouse all work at the same time.
+
 ### Recording episodes
 
 Every attempt is recorded as an episode: the full simulator state 30 times per second
@@ -117,6 +136,7 @@ episode is in `tests/fixtures/`.
 node tests/pick_place.mjs
 node tests/medication.mjs
 node tests/fall_hazard.mjs
+node tests/spacemouse.mjs
 ```
 
 Runs the game's own simulation and control code headlessly and checks that a scripted
@@ -134,6 +154,7 @@ web/
     ik.js               end-effector inverse kinematics (damped least squares)
     teleop.js           turns "move the gripper" commands into servo targets
     keyboard.js         keyboard input
+    spacemouse.js       3D mouse input (WebHID)
     phone.js            phone input (game side): same commands as the keyboard
     task.js             success predicates and scoring
     recorder.js         episode recording (30 fps raw sim state)

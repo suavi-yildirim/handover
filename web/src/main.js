@@ -4,6 +4,7 @@ import { Renderer } from './render.js';
 import { Keyboard, KEY_HELP } from './keyboard.js';
 import { ROBOT } from './robot.js';
 import { PhoneInput, addCommands } from './phone.js';
+import { SpaceMouseInput } from './spacemouse.js';
 import { TASKS } from './task.js';
 import { Recorder } from './recorder.js';
 
@@ -46,16 +47,26 @@ async function main() {
   });
   const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed), getGrip: () => teleop.gripClosed });
   phone.showBadge(document.body, { bottom: 64 });
+  const spacemouse = new SpaceMouseInput({ onToggleGrip: () => teleop.toggleGrip() });
+  const smButton = $('spacemouse');
+  spacemouse.onChange = () => {
+    smButton.textContent = spacemouse.connected
+      ? `✓ ${spacemouse.name}${spacemouse.fine ? ' · precise' : ''}`
+      : 'Connect 3D mouse';
+  };
+  spacemouse.onChange();
+  smButton.hidden = !spacemouse.supported;
+  smButton.addEventListener('click', (e) => { spacemouse.connect().catch(console.error); e.currentTarget.blur(); });
 
   $('task-select').innerHTML = tasks.map((t, i) => `<option value="${i}">${i + 1}. ${t.title}</option>`).join('');
   $('task-select').value = String(tasks.indexOf(task));
   $('task-select').addEventListener('change', (e) => { selectTask(Number(e.target.value)); e.target.blur(); });
   $('task-hint').textContent = task.hint;
-  $('help').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
+  $('help-keys').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
   $('loading').remove();
 
   // Exposed for debugging and automated tests.
-  window.handover = { sim, teleop, view, keys, phone, task, recorder, reset };
+  window.handover = { sim, teleop, view, keys, phone, spacemouse, task, recorder, reset };
 
   let last = performance.now(), simLag = 0, fps = 0, frames = 0, fpsT = last;
   function frame(now) {
@@ -63,9 +74,10 @@ async function main() {
     last = now;
 
     const axes = view.groundAxes();
-    teleop.command(addCommands(keys.command(axes), phone.command(axes, dt)), dt);
+    teleop.command(addCommands(addCommands(keys.command(axes), phone.command(axes, dt)), spacemouse.command(axes)), dt);
     if (keys.active) recorder.noteInput('keyboard');
     if (phone.active) recorder.noteInput('phone');
+    if (spacemouse.active) recorder.noteInput('spacemouse');
     teleop.apply(dt);
 
     simLag += dt;
