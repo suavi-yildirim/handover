@@ -54,6 +54,16 @@ function setPose(obj, pos, mat) {
   );
 }
 
+const ROOM_LAYER = 1;
+
+// Orthographic helper views. center/half: the visible window (m) in view coordinates
+// (horizontal, vertical); far clips away what lies behind the table.
+const ORTHO_VIEWS = [
+  { label: 'Top', pos: [0.17, 0, 0.7], look: [0.17, 0, 0], up: [1, 0, 0], far: 0.75, center: [0, 0.04], half: 0.27 },
+  { label: 'Front (facing the robot)', pos: [0.6, 0, 0.15], look: [0, 0, 0.15], up: [0, 0, 1], far: 1.1, center: [0, -0.03], half: 0.2 },
+  { label: 'Side (robot facing right)', pos: [0.17, -0.6, 0.15], look: [0.17, 0, 0.15], up: [0, 0, 1], far: 1.2, center: [0, -0.03], half: 0.2 },
+];
+
 export class Renderer {
   constructor(canvas, sim) {
     this.sim = sim;
@@ -97,23 +107,63 @@ export class Renderer {
       this.wrist.matrixAutoUpdate = false;
     }
 
+    // Orthographic helper views for the 4-view layout (like a CAD drawing): top, front and
+    // side, each looking at the table with the room hidden. They only help the player see
+    // where the gripper is; the dataset cameras live in the MJCF and are not affected.
+    this.camera.layers.enable(ROOM_LAYER);
+    if (this.wrist) this.wrist.layers.enable(ROOM_LAYER);
+    this.ortho = ORTHO_VIEWS.map((v) => {
+      const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, v.far);
+      cam.up.set(...v.up);
+      cam.position.set(...v.pos);
+      cam.lookAt(...v.look);
+      return { ...v, cam };
+    });
+    this.layout = 'single'; // 'single' | 'quad'
+
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
 
+  // Viewport rectangles (CSS pixels, y from the bottom) for the current layout.
+  // Quad layout: 3D view top-left (under the task panel), top view top-right, front view
+  // bottom-left, side view bottom-right.
+  views() {
+    const { W, H } = this.size();
+    if (this.layout !== 'quad') return [{ cam: this.camera, x: 0, y: 0, w: W, h: H }];
+    const w = Math.floor(W / 2), h = Math.floor(H / 2);
+    const [top, front, side] = this.ortho;
+    return [
+      { cam: this.camera, label: '3D view (drag to orbit)', x: 0, y: H - h, w, h },
+      { ...top, x: W - w, y: H - h, w, h },
+      { ...front, x: 0, y: 0, w, h },
+      { ...side, x: W - w, y: 0, w, h },
+    ];
+  }
+
+  size() {
+    const c = this.renderer.domElement;
+    return { W: c.clientWidth || window.innerWidth, H: c.clientHeight || window.innerHeight };
+  }
+
   // Corner rectangle of the wrist view in CSS pixels (x, y from the bottom-left).
   wristRect() {
-    const c = this.renderer.domElement;
-    const W = c.clientWidth || window.innerWidth, H = c.clientHeight || window.innerHeight;
-    const w = Math.round(Math.min(320, 0.32 * W)), h = Math.round(w * 0.75);
-    // Bottom-left on wide screens; top-right on phones, where the task panel sits at the bottom.
-    const y = W < 700 ? H - h - 16 : 56, x = W < 700 ? W - w - 16 : 16;
+    const { W, H } = this.size();
+    const quad = this.layout === 'quad';
+    const w = Math.round(Math.min(quad ? 240 : 320, (quad ? 0.2 : 0.32) * W)), h = Math.round(w * 0.75);
+    // Bottom-left on wide screens; top-right on phones, where the task panel sits at the
+    // bottom; in the 4-view layout, the bottom-right corner of the 3D view.
+    let x = 16, y = 56;
+    if (quad) { x = Math.floor(W / 2) - w - 8; y = H - Math.floor(H / 2) + 8; }
+    else if (W < 700) { x = W - w - 16; y = H - h - 16; }
     return { x, y, w, h, top: H - y - h };
   }
 
   buildGeoms() {
     const { model } = this.sim;
     this.geoms = [];
+    const roomBodies = new Set([this.sim.id('BODY', 'kitchen_room')].filter((b) => b >= 0));
+    const floor = this.sim.id('GEOM', 'floor');
     for (let g = 0; g < model.ngeom; g++) {
       if (!VISIBLE_GROUPS.has(model.geom_group[g])) continue;
       const rgba = colorOf(model, g);
@@ -127,6 +177,8 @@ export class Renderer {
       if (fixed) setPose(mesh, this.sim.data.geom_xpos.subarray(3 * g, 3 * g + 3), this.sim.data.geom_xmat.subarray(9 * g, 9 * g + 9));
       mesh.castShadow = model.geom_type[g] !== GEOM.PLANE && rgba[3] >= 1;
       mesh.receiveShadow = true;
+      // The room (walls, cabinets, floor) is hidden in the orthographic helper views.
+      if (roomBodies.has(model.body_rootid[model.geom_bodyid[g]]) || g === floor) mesh.layers.set(ROOM_LAYER);
       this.scene.add(mesh);
       if (!fixed) this.geoms.push([g, mesh]);
     }
@@ -151,8 +203,6 @@ export class Renderer {
     const c = this.renderer.domElement;
     const w = c.clientWidth || window.innerWidth, h = c.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
   }
 
   // Horizontal forward/right unit vectors of the camera, for camera-relative controls.
@@ -179,13 +229,33 @@ export class Renderer {
     }
     if (!this.envBaked) { bakeEnvironment(this.renderer, this.scene); this.envBaked = true; }
     this.controls.update();
-    const r = this.renderer;
-    r.render(this.scene, this.camera);
+    const r = this.renderer, size = r.getSize(new THREE.Vector2());
+    // Shadow maps are drawn once per frame and shared by all views.
+    r.shadowMap.autoUpdate = false;
+    r.shadowMap.needsUpdate = true;
+    const views = this.views();
+    r.setScissorTest(views.length > 1);
+    for (const v of views) {
+      const aspect = v.w / Math.max(1, v.h);
+      if (v.cam.isOrthographicCamera) {
+        const hh = v.half, hw = hh * aspect, [cx, cy] = v.center;
+        Object.assign(v.cam, { left: cx - hw, right: cx + hw, top: cy + hh, bottom: cy - hh });
+        v.cam.updateProjectionMatrix();
+      } else if (Math.abs(v.cam.aspect - aspect) > 1e-6) {
+        v.cam.aspect = aspect;
+        v.cam.updateProjectionMatrix();
+      }
+      r.setViewport(v.x, v.y, v.w, v.h);
+      r.setScissor(v.x, v.y, v.w, v.h);
+      r.render(this.scene, v.cam);
+    }
+    r.setScissorTest(false);
+    r.setViewport(0, 0, size.x, size.y);
     if (this.showWrist) {
       const c = this.wristCam;
       setPose(this.wrist, data.cam_xpos.subarray(3 * c, 3 * c + 3), data.cam_xmat.subarray(9 * c, 9 * c + 9));
       this.wrist.updateMatrixWorld(true);
-      const { x, y, w, h } = this.wristRect(), size = r.getSize(new THREE.Vector2());
+      const { x, y, w, h } = this.wristRect();
       this.marker.visible = this.shadowDot.visible = false;
       r.setScissorTest(true);
       r.setScissor(x, y, w, h);

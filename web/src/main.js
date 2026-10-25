@@ -45,6 +45,7 @@ async function main() {
     const i = Number(e.key) - 1;
     if (i >= 0 && i < tasks.length && !e.repeat) selectTask(i);
     if (e.code === 'KeyC' && !e.repeat && view.wrist) view.showWrist = !view.showWrist;
+    if (e.code === 'KeyV' && !e.repeat) setLayout(view.layout === 'quad' ? 'single' : 'quad');
   });
   const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed), getGrip: () => teleop.gripClosed });
   phone.showBadge(document.body, { bottom: 64 });
@@ -65,6 +66,25 @@ async function main() {
   $('task-hint').textContent = task.hint;
   $('help-keys').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
   $('loading').remove();
+
+  // View layout: one 3D view, or four views (top, 3D, front, side). Remembered per browser.
+  const viewLabels = $('view-labels');
+  function setLayout(layout) {
+    view.layout = layout;
+    document.body.classList.toggle('quad', layout === 'quad');
+    try { localStorage.setItem('handover.layout', layout); } catch {}
+    viewLabels.dataset.at = '';
+  }
+  function placeViewLabels() {
+    const { H } = view.size(), vs = view.views(), key = vs.map((v) => `${v.x},${v.y},${v.w}`).join(' ') + H;
+    if (viewLabels.dataset.at === key) return;
+    viewLabels.dataset.at = key;
+    viewLabels.innerHTML = vs.length < 2 ? '' : vs.map((v) =>
+      `<div style="left:${v.x + v.w / 2}px;top:${H - v.y - v.h + 8}px">${v.label}</div>`).join('');
+  }
+  let savedLayout = null;
+  try { savedLayout = localStorage.getItem('handover.layout'); } catch {}
+  setLayout(savedLayout === 'quad' ? 'quad' : 'single');
 
   const wristLabel = $('wrist-label');
   function placeWristLabel() {
@@ -103,6 +123,7 @@ async function main() {
     }
     view.draw(teleop.target);
     placeWristLabel();
+    placeViewLabels();
     showTask(task);
 
     frames++;

@@ -25,6 +25,15 @@
     #status { bottom: 16px; left: 16px; right: 16px; font: 12px ui-monospace, Menlo, monospace; }
     #wrist-label { position: fixed; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000;
       pointer-events: none; }
+    #view-labels div { position: fixed; transform: translateX(-50%); font-size: 12px; font-weight: 600;
+      opacity: 0.75; pointer-events: none; }
+    /* 4-view layout: hide the key list (it would cover the 3D view; V switches back) and
+       draw thin lines between the views. */
+    body.quad #help { display: none; }
+    body.quad::before, body.quad::after { content: ''; position: fixed; background: rgba(0, 0, 0, 0.25);
+      pointer-events: none; z-index: 0; }
+    body.quad::before { left: 50%; top: 0; bottom: 0; width: 1px; }
+    body.quad::after { top: 50%; left: 0; right: 0; height: 1px; }
     #loading { top: 50%; left: 50%; transform: translate(-50%, -50%); }
     #task { top: 96px; left: 16px; width: 260px; }
     #task h2 { margin: 0 0 4px; font-size: 15px; display: flex; justify-content: space-between; }
@@ -62,6 +71,7 @@
     <div id="help-keys"></div>
     <button id="spacemouse" hidden title="Chrome or Edge: pick your SpaceMouse in the browser's device list"></button>
   </div>
+  <div id="view-labels"></div>
   <div id="wrist-label">Wrist camera · C hides</div>
   <div id="status" class="panel">Loading…</div>
   <div id="loading" class="panel">Loading physics and robot model…</div>
