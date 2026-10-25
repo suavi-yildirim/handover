@@ -171,6 +171,8 @@ export class PhoneInput {
       + 'background:rgba(20,23,28,.92);'
       + 'color:#e8ecf1;border:1px solid #333a45;border-radius:12px;padding:10px 12px;'
       + 'font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:220px;';
+    // Small screens (the game itself opened on a phone): the task panel needs the space.
+    if (matchMedia('(max-width: 600px)').matches) el.style.display = 'none';
     parent.appendChild(el);
 
     let info = null;
