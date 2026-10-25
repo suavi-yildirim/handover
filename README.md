@@ -35,7 +35,7 @@ Build order:
 1. ✅ Arm in a browser kitchen scene, keyboard-controlled.
 2. ✅ Success check + score, the first playable demo ([task definitions](docs/tasks.md)).
 3. Phone control.
-4. Episode logging, training pipeline, and the model playing the level.
+4. Episode logging (✅ recording in the game), training pipeline, and the model playing the level.
 
 ## Play it
 
@@ -92,6 +92,16 @@ Keyboard and phone work at the same time. The arm stops if the phone locks, swit
 or drops off Wi-Fi. `http://localhost:8000/phone/demo.html` shows what the phone sends
 without the robot, for checking the connection.
 
+### Recording episodes
+
+Every attempt is recorded as an episode: the full simulator state 30 times per second
+(sim-native units), what the player was steering toward, and the task result and score.
+When at least one episode has finished, a **Download episodes** button appears in the task
+panel. It saves all episodes from this session as one `.jsonl.gz` file (one episode per
+line) for the training pipeline, which renders camera views and writes a LeRobot dataset.
+Episodes stay in the page until downloaded, so download before closing the tab. A sample
+episode is in `tests/fixtures/`.
+
 ## Tests
 
 ```sh
@@ -114,6 +124,7 @@ web/
     keyboard.js         keyboard input
     phone.js            phone input (game side): same commands as the keyboard
     task.js             success predicates and scoring
+    recorder.js         episode recording (30 fps raw sim state)
     render.js           three.js rendering of the MuJoCo scene
     main.js             game loop and HUD
   phone/                phone controller page (joystick, tilt, Grip) + demo.html
