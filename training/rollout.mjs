@@ -67,8 +67,8 @@ console.log(`policy ${info.policy} on ${info.device}, ${info.chunk} actions per 
 function randomizeStart() {
   if (TASK_ID !== 'cup_on_tray') return;
   const adr = sim.qposAdr('cup_free');
-  data.qpos[adr] = uniform(0.16, 0.28);
-  data.qpos[adr + 1] = uniform(0.05, 0.16);
+  data.qpos[adr] += uniform(-0.04, 0.04);
+  data.qpos[adr + 1] += uniform(-0.04, 0.04);
   sim.mj.mj_forward(model, data);
 }
 

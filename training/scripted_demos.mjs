@@ -55,8 +55,9 @@ const bodyPos = (n) => { const i = sim.id('BODY', n); return Array.from(data.xpo
 
 function runEpisode() {
   sim.reset();
+  // Shift the cup up to 4 cm in x and y from where the level places it.
   const cupAdr = sim.qposAdr('cup_free');
-  const cupXY = [uniform(0.16, 0.28), uniform(0.05, 0.16)];
+  const cupXY = [data.qpos[cupAdr] + uniform(-0.04, 0.04), data.qpos[cupAdr + 1] + uniform(-0.04, 0.04)];
   data.qpos[cupAdr] = cupXY[0];
   data.qpos[cupAdr + 1] = cupXY[1];
   sim.mj.mj_forward(model, data);
@@ -75,9 +76,9 @@ function runEpisode() {
   }
   const speed = uniform(0.09, 0.15);
   // Move the target in a straight line, then hold, like a player tapping keys.
-  function moveTo(pos, hold = uniform(0.2, 0.5)) {
+  function moveTo(pos, hold = uniform(0.2, 0.5), v = speed) {
     const start = teleop.target.slice();
-    const T = Math.max(1e-6, Math.hypot(...pos.map((v, i) => v - start[i])) / speed);
+    const T = Math.max(1e-6, Math.hypot(...pos.map((x, i) => x - start[i])) / v);
     for (let t = 0; t < T + hold && task.state === 'playing'; t += 1 / RENDER_FPS) {
       const a = Math.min(1, t / T), s = a * a * (3 - 2 * a); // smoothstep: no jerk at the ends
       for (let i = 0; i < 3; i++) teleop.target[i] = start[i] + (pos[i] - start[i]) * s;
@@ -89,7 +90,7 @@ function runEpisode() {
   const above = uniform(0.06, 0.1);
   const drop = [tray[0] + uniform(-0.02, 0.02), tray[1] + uniform(-0.015, 0.015)];
   moveTo([cup[0], cup[1], Z + above]);
-  moveTo([cup[0], cup[1], Z]);
+  moveTo([cup[0], cup[1], Z], uniform(0.2, 0.5), speed / 2); // slow final approach, as in tests/harness.mjs
   teleop.setGrip(true); moveTo([cup[0], cup[1], Z], 0.8);
   moveTo([cup[0], cup[1], Z + above]);
   moveTo([drop[0], drop[1], Z + above]);
