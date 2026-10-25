@@ -131,7 +131,8 @@ letting the IK fold the arm into a different pose.
 
 ## Episode tags and events
 
-Each recorded episode also carries `contributor_id` (random, per browser), `inputs`,
+Each recorded episode also carries `license` (`CC-BY-4.0`: recorded play data is released
+under CC BY 4.0, attribution "Suavi Yildirim and the Handover contributors"), `contributor_id` (random, per browser), `inputs`,
 `game_version`, `mujoco_version`, `scene_seed` (null until scenes are randomized), and an
 `events` list of `{t, type}` with type `grasp`, `release`, `drop`, `success`, or `fail`.
 

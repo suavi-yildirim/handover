@@ -6,6 +6,7 @@ import { ROBOT } from './robot.js';
 
 export const FORMAT_VERSION = 1;
 export const GAME_VERSION = '0.4.1';
+export const DATA_LICENSE = 'CC-BY-4.0'; // recorded play data; the code is Apache-2.0
 export const FPS = 30;
 
 const round = (x) => Math.round(x * 1e6) / 1e6;
@@ -55,6 +56,7 @@ export class Recorder {
       started_at: new Date().toISOString(),
       inputs: [], // input devices used during the episode, e.g. ['keyboard', 'phone']
       contributor_id: contributorId(),
+      license: DATA_LICENSE,
       game_version: GAME_VERSION,
       mujoco_version: this.sim.mj.mj_versionString(),
       scene_seed: null, // no scene randomization yet

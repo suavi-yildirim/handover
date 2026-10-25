@@ -154,6 +154,10 @@ line) for the training pipeline, which renders camera views and writes a LeRobot
 Episodes stay in the page until downloaded, so download before closing the tab. A sample
 episode is in `tests/fixtures/`.
 
+Recorded play data (episodes and the datasets built from them) is released under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), attribution "Suavi Yildirim
+and the Handover contributors". Every episode carries `"license": "CC-BY-4.0"`.
+
 ## Tests
 
 ```sh
@@ -219,8 +223,11 @@ related research.
 
 ## License
 
-Handover is open source under the [Apache License 2.0](LICENSE), copyright 2026 the
-Handover contributors. The SO-101 model (`web/models/so101`) is Apache-2.0 from
+Handover is open source under the [Apache License 2.0](LICENSE), copyright 2026 Suavi
+Yildirim and the Handover contributors. The SO-101 model (`web/models/so101`) is Apache-2.0 from
 [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie); MuJoCo is
 Apache-2.0, three.js and qrcode-generator are MIT, with their licenses in `web/vendor`; see [NOTICE](NOTICE). Contributions are accepted under
 Apache-2.0.
+
+Recorded play data is licensed separately, under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (see *Recording episodes*).
