@@ -68,6 +68,11 @@ Checkpoints land in `outputs/train/smolvla_handover/checkpoints/<step>/pretraine
 (`last` points at the newest). Only the action expert is trained; the vision-language
 backbone stays frozen, which keeps memory within a MacBook's.
 
+**No GPU?** [colab_train.ipynb](colab_train.ipynb) does the whole loop on a free Google
+Colab GPU: 50 scripted demos, conversion, a 5,000-step SmolVLA run, 10 scored rollouts and a
+video of the model playing. [Open it in Colab](https://colab.research.google.com/github/syldrm3141/handover/blob/claude/project-thread-5ruxby/training/colab_train.ipynb),
+pick a GPU runtime, and press Run all.
+
 **Time.** The SmolVLA docs quote about 4 hours for 20k steps at batch 64 on an A100. An M2
 is far slower, so try a short run first and judge from its steps per second. If it's too
 slow, run the same script on a rented GPU with `DEVICE=cuda BATCH=64`. The converted
@@ -110,4 +115,5 @@ scripted_demos.mjs         scripted cup-on-tray demos using the game's code
 train_smolvla.sh           lerobot-train for SmolVLA, MPS defaults
 policy_server.py           HTTP server: sim state in, servo targets out
 rollout.mjs                policy plays a task in the game's sim and is scored
+colab_train.ipynb          the whole loop on a free Colab GPU
 ```
