@@ -3,3 +3,8 @@ node_modules/
 __pycache__/
 *.pyc
 .certs/
+# training pipeline outputs
+training/data/
+training/outputs/
+training/runs/
+.venv/
