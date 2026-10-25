@@ -74,19 +74,22 @@ $('tilt').addEventListener('click', async () => {
 // --- Motion mode ----------------------------------------------------------
 
 const KIND_HELP = {
-  aim: 'Turn the phone left/right to slide, tip it up/down to reach farther/closer, twist to roll the wrist. Slider = height.',
-  push: 'Experimental: move the phone itself and the gripper follows. Short moves work best. Twist to roll the wrist.',
+  aim: 'Tilt like a joystick: tip the top away to go forward, dip the right side to go right, turn the phone right to roll clockwise. Slider = height.',
+  push: 'Experimental: move the phone itself and the gripper follows. Short moves work best. Turn the phone to roll the wrist.',
 };
 
 function applyMode() {
   const m = mode === 'motion';
   $('mode').textContent = m ? 'Mode: Motion' : 'Mode: Sticks';
   $('kind').hidden = !m;
+  $('axesLink').hidden = !m;
+  $('axesLink').textContent = motion.calibration ? 'Axes ✓' : 'Axes';
   $('kind').textContent = motion.mode === 'aim' ? 'Style: Aim' : 'Style: Push β';
   $('tilt').hidden = $('recenter').hidden = m;
   $('clutch').hidden = !m;
   $('moveStick').hidden = m;
-  $('clutchHelp').textContent = KIND_HELP[motion.mode];
+  $('clutchHelp').textContent = motion.mode === 'aim' && motion.calibration
+    ? 'Using the moves you taught on the Axes page. Slider = height.' : KIND_HELP[motion.mode];
 }
 
 async function ensureMotion() {

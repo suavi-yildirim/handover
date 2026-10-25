@@ -42,7 +42,7 @@ export function rotate(q, v) {
   return [r[1], r[2], r[3]];
 }
 
-function rotationVector(q) {
+export function rotationVector(q) {
   let [w, x, y, z] = q;
   if (w < 0) [w, x, y, z] = [-w, -x, -y, -z];
   const s = Math.hypot(x, y, z);
