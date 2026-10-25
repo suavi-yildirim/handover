@@ -44,6 +44,7 @@ async function main() {
   window.addEventListener('keydown', (e) => {
     const i = Number(e.key) - 1;
     if (i >= 0 && i < tasks.length && !e.repeat) selectTask(i);
+    if (e.code === 'KeyM' && !e.repeat) setMenu(!drawer.classList.contains('open'));
     if (e.code === 'KeyC' && !e.repeat && view.wrist) view.showWrist = !view.showWrist;
     if (e.code === 'KeyV' && !e.repeat) setLayout(view.layout === 'quad' ? 'single' : 'quad');
   });
@@ -66,6 +67,31 @@ async function main() {
   $('task-hint').textContent = task.hint;
   $('help-keys').innerHTML = KEY_HELP.map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('');
   $('loading').remove();
+
+  // Side menu (title, task, controls): slides in from the left. M or the button toggles it.
+  const drawer = $('drawer'), menuBtn = $('menu-toggle');
+  function setMenu(open) {
+    drawer.classList.toggle('open', open);
+    menuBtn.classList.toggle('open', open);
+    menuBtn.setAttribute('aria-expanded', String(open));
+    menuBtn.textContent = open ? '✕' : '☰';
+    save('handover.menu', open ? 'open' : 'closed');
+  }
+  menuBtn.addEventListener('click', () => setMenu(!drawer.classList.contains('open')));
+  setMenu(load('handover.menu') === 'open');
+
+  // Precision slider: scales every input (keys, phone, 3D mouse), so the arm can be moved slowly.
+  const speedSlider = $('speed-slider'), speedOut = $('speed-out');
+  let speed = Math.min(1, Math.max(0.2, Number(load('handover.speed')) || 1));
+  function setSpeed(s) {
+    speed = s;
+    speedSlider.value = String(s);
+    speedOut.textContent = `${Math.round(s * 100)}%`;
+    save('handover.speed', String(s));
+  }
+  speedSlider.addEventListener('input', () => setSpeed(Number(speedSlider.value)));
+  speedSlider.addEventListener('change', () => speedSlider.blur()); // keep keys for driving
+  setSpeed(speed);
 
   // View layout: one 3D view, or four views (top, 3D, front, side). Remembered per browser.
   const viewLabels = $('view-labels');
@@ -105,7 +131,8 @@ async function main() {
     last = now;
 
     const axes = view.groundAxes();
-    teleop.command(addCommands(addCommands(keys.command(axes), phone.command(axes, dt)), spacemouse.command(axes)), dt);
+    const cmd = addCommands(addCommands(keys.command(axes), phone.command(axes, dt)), spacemouse.command(axes));
+    teleop.command(scaleCommand(cmd, speed), dt);
     if (keys.active) recorder.noteInput('keyboard');
     if (phone.active) recorder.noteInput('phone');
     if (spacemouse.active) recorder.noteInput('spacemouse');
@@ -171,6 +198,11 @@ function showEpisodes(recorder) {
 }
 
 // Best scores and the chosen task are per-browser conveniences; storage may be unavailable.
+// Scales a movement command by the precision slider (0.2 = very slow, 1 = full speed).
+function scaleCommand(c, s) {
+  return { v: c.v.map((x) => x * s), pitchRate: c.pitchRate * s, rollRate: c.rollRate * s };
+}
+
 function load(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* ignore */ } }
 function bestScore(taskId, score) {

@@ -13,6 +13,7 @@ export const KEY_HELP = [
   ['Shift', 'slow, precise moves'],
   ['C', 'wrist camera view on / off'],
   ['V', '4 views (front, top, 3D, side) / one view'],
+  ['M', 'show / hide the menu'],
   ['R', 'reset level'],
   ['1 2 3', 'switch task'],
   ['Mouse', 'orbit / zoom camera'],

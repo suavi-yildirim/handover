@@ -27,9 +27,7 @@
       pointer-events: none; }
     #view-labels div { position: fixed; transform: translateX(-50%); font-size: 12px; font-weight: 600;
       opacity: 0.75; pointer-events: none; }
-    /* 4-view layout: hide the key list (it would cover the 3D view; V switches back) and
-       draw thin lines between the views. */
-    body.quad #help { display: none; }
+    /* 4-view layout: thin lines between the views. */
     body.quad::before, body.quad::after { content: ''; position: fixed; background: rgba(0, 0, 0, 0.25);
       pointer-events: none; z-index: 0; }
     body.quad::before { left: 50%; top: 0; bottom: 0; width: 1px; }
@@ -54,23 +52,52 @@
       background: #fff; cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
     #download:hover { border-color: var(--accent); }
     .dim { opacity: 0.65; font-size: 13px; }
-    @media (max-width: 700px) { #help { display: none; } #task { top: auto; bottom: 64px; } }
+    /* Side menu: title, task and controls slide in from the left. Hidden by default so the
+       views stay clear; M or the button opens it. */
+    #drawer { position: fixed; top: 0; bottom: 0; left: 0; width: min(300px, 88vw); z-index: 20;
+      box-sizing: border-box; padding: 72px 16px 16px; overflow-y: auto; border-radius: 0 14px 14px 0;
+      background: var(--panel); backdrop-filter: blur(8px); box-shadow: 4px 0 18px rgba(0, 0, 0, 0.12);
+      transform: translateX(-105%); transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    #drawer.open { transform: translateX(0); }
+    #drawer .panel { position: static; width: auto; box-shadow: none; background: none; backdrop-filter: none;
+      padding: 0; margin: 0 0 18px; }
+    #menu-toggle { position: fixed; top: 16px; left: 16px; z-index: 30; width: 42px; height: 42px; padding: 0;
+      border: 0; border-radius: 10px; background: var(--panel); backdrop-filter: blur(6px); cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1); color: var(--ink); font-size: 20px; line-height: 42px;
+      transition: left 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    #menu-toggle:hover { color: var(--accent); }
+    #menu-toggle.open { left: calc(min(300px, 88vw) + 16px); }
+    /* Precision slider: scales every input (keys, phone, 3D mouse). */
+    #speed { top: 16px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex;
+      align-items: center; gap: 8px; font-size: 13px; padding: 8px 14px; white-space: nowrap; }
+    #speed input { width: min(240px, 40vw); accent-color: var(--accent); cursor: pointer; }
+    #speed output { min-width: 42px; text-align: right; font: 12px ui-monospace, Menlo, monospace; }
+    @media (prefers-reduced-motion: reduce) { #drawer, #menu-toggle { transition: none; } }
   </style>
 </head>
 <body>
   <canvas id="view"></canvas>
-  <div id="title" class="panel"><h1>Handover</h1><p>Kitchen · teach the robot to care</p></div>
-  <div id="task" class="panel">
-    <h2><select id="task-select" aria-label="Task"></select><span id="task-time"></span></h2>
-    <p id="task-hint"></p>
-    <ul id="task-checks"></ul>
-    <button id="download" hidden></button>
+  <button id="menu-toggle" type="button" aria-controls="drawer" aria-expanded="false" title="Menu (M)">☰</button>
+  <aside id="drawer" aria-label="Menu">
+    <div id="title" class="panel"><h1>Handover</h1><p>Kitchen · teach the robot to care</p></div>
+    <div id="task" class="panel">
+      <h2><select id="task-select" aria-label="Task"></select><span id="task-time"></span></h2>
+      <p id="task-hint"></p>
+      <ul id="task-checks"></ul>
+      <button id="download" hidden></button>
+    </div>
+    <div id="help" class="panel">
+      <div id="help-keys"></div>
+      <button id="spacemouse" hidden title="Chrome or Edge: pick your SpaceMouse in the browser's device list"></button>
+    </div>
+  </aside>
+  <div id="speed" class="panel">
+    <span>Precise</span>
+    <input id="speed-slider" type="range" min="0.2" max="1" step="0.05" value="1" aria-label="Speed, from precise to fast">
+    <span>Fast</span>
+    <output id="speed-out">100%</output>
   </div>
   <div id="result" class="panel" hidden></div>
-  <div id="help" class="panel">
-    <div id="help-keys"></div>
-    <button id="spacemouse" hidden title="Chrome or Edge: pick your SpaceMouse in the browser's device list"></button>
-  </div>
   <div id="view-labels"></div>
   <div id="wrist-label">Wrist camera · C hides</div>
   <div id="status" class="panel">Loading…</div>
