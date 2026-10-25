@@ -89,6 +89,19 @@ The first time, the phone warns about the certificate because it is a self-signe
 for your Mac: tap *Show Details > visit this website* (iPhone) or *Advanced > Proceed*
 (Android). If macOS asks whether Python may accept incoming connections, allow it.
 
+The phone opens in **Motion** mode: hold *Hold to move* and move the phone, let go to
+reposition your hand (like lifting a mouse). Two styles, switched with the *Style* button:
+
+| Style | What moves the gripper |
+|---|---|
+| Aim (default) | turn the phone left / right to slide, tip it up / down to reach farther / closer, turn it like a key to roll the wrist; the slider sets the height |
+| Push β | move the phone itself and the gripper follows in 3D. Experimental: phone accelerometers drift, so short moves work best |
+
+Hold the phone flat (top edge toward the screen) or upright (back toward the screen); both
+work. True 6-DoF tracking of an iPhone needs a native ARKit app, which is a later step.
+
+*Mode: Sticks* switches to on-screen controls:
+
 | Phone | Action |
 |---|---|
 | Left joystick | move the gripper (relative to the camera, like WASD) |
@@ -100,6 +113,25 @@ for your Mac: tap *Show Details > visit this website* (iPhone) or *Advanced > Pr
 Keyboard and phone work at the same time. The arm stops if the phone locks, switches apps,
 or drops off Wi-Fi. `http://localhost:8000/phone/demo.html` shows what the phone sends
 without the robot, for checking the connection.
+
+### Control with a 3D mouse
+
+A 3Dconnexion SpaceMouse works in **Chrome or Edge** (they support WebHID; Safari doesn't).
+Click **Connect 3D mouse** under the key list and pick the device once; the page reconnects
+to it after that. If it doesn't show up or doesn't respond on a Mac, quit the 3Dconnexion
+driver app (3DxWare) so the browser can open the device.
+
+| 3D mouse | Action |
+|---|---|
+| Push / pull the cap | gripper forward / back (relative to the camera) |
+| Slide the cap left / right | gripper left / right |
+| Lift / press the cap | up / down |
+| Tilt the cap forward / back | tilt the gripper |
+| Twist the cap | roll the wrist |
+| Left button | open / close the gripper |
+| Right button | precise (slow) mode on / off |
+
+Keyboard, phone and 3D mouse all work at the same time.
 
 ### Recording episodes
 
@@ -117,6 +149,7 @@ episode is in `tests/fixtures/`.
 node tests/pick_place.mjs
 node tests/medication.mjs
 node tests/fall_hazard.mjs
+node tests/spacemouse.mjs
 ```
 
 Runs the game's own simulation and control code headlessly and checks that a scripted
@@ -134,12 +167,13 @@ web/
     ik.js               end-effector inverse kinematics (damped least squares)
     teleop.js           turns "move the gripper" commands into servo targets
     keyboard.js         keyboard input
+    spacemouse.js       3D mouse input (WebHID)
     phone.js            phone input (game side): same commands as the keyboard
     task.js             success predicates and scoring
     recorder.js         episode recording (30 fps raw sim state)
     render.js           three.js rendering of the MuJoCo scene
     main.js             game loop and HUD
-  phone/                phone controller page (joystick, tilt, Grip) + demo.html
+  phone/                phone controller page (motion, joystick, tilt, Grip) + demo.html
   models/
     kitchen.xml         level 1: kitchen table, cup, tray, medicine bottle, glasses case
     so101/              SO-101 arm (MuJoCo Menagerie, Apache-2.0)

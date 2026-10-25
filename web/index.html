@@ -15,7 +15,11 @@
     #title h1 { margin: 0; font-size: 18px; }
     #title p { margin: 2px 0 0; opacity: 0.7; }
     #help { top: 16px; right: 16px; display: grid; gap: 4px; font-size: 13px; }
-    #help div { display: flex; gap: 10px; align-items: center; }
+    #help-keys { display: grid; gap: 4px; }
+    #help-keys div { display: flex; gap: 10px; align-items: center; }
+    #spacemouse { margin-top: 6px; padding: 5px; border: 1px solid #c9d1d6; border-radius: 6px; background: #fff;
+      cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
+    #spacemouse:hover { border-color: var(--accent); }
     kbd { min-width: 64px; display: inline-block; text-align: center; padding: 1px 6px; border-radius: 5px;
       background: #fff; border: 1px solid #c9d1d6; font: 12px ui-monospace, Menlo, monospace; }
     #status { bottom: 16px; left: 16px; right: 16px; font: 12px ui-monospace, Menlo, monospace; }
@@ -52,7 +56,10 @@
     <button id="download" hidden></button>
   </div>
   <div id="result" class="panel" hidden></div>
-  <div id="help" class="panel"></div>
+  <div id="help" class="panel">
+    <div id="help-keys"></div>
+    <button id="spacemouse" hidden title="Chrome or Edge: pick your SpaceMouse in the browser's device list"></button>
+  </div>
   <div id="status" class="panel">Loading…</div>
   <div id="loading" class="panel">Loading physics and robot model…</div>
   <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>

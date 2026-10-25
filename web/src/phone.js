@@ -22,10 +22,12 @@ const DEFAULTS = {
   pitchRate: 1.2,    // rad/s cap, matches the keyboard
   rollRate: 2.0,     // rad/s cap, matches the keyboard
   wristGain: 6,      // 1/s, how hard the wrist servos toward the phone's tilt
+  aimSpeed: 0.3,     // m/s cap when moving the phone itself (motion mode)
+  aimGain: 8,        // 1/s, how hard the gripper servos toward where the phone says
   staleMs: 250,      // no message for this long -> stop moving (phone locked, Wi-Fi hiccup)
 };
 
-const ZERO = { move: { x: 0, y: 0, z: 0 }, wrist: { pitch: 0, roll: 0 }, tilt: false, grip: false, center: 0 };
+const ZERO = { move: { x: 0, y: 0, z: 0 }, wrist: { pitch: 0, roll: 0 }, tilt: false, grip: false, center: 0, aim: null };
 
 const clamp = (v, m) => Math.max(-m, Math.min(m, v));
 
@@ -50,6 +52,7 @@ export class PhoneInput {
     this._phoneGrip = null;    // grip value in the phone's previous message
     this.phones = 0;
     this.applied = { pitch: 0, roll: 0, center: null };
+    this.aimApplied = { id: null, x: 0, y: 0, z: 0, roll: 0 };
     this.ws = null;
     this._retry = 1000;
     this._listeners = new Set();
@@ -61,8 +64,8 @@ export class PhoneInput {
   // Is the phone currently steering (fresh message, stick or tilt in use)?
   get active() {
     if (!this.connected || performance.now() - this.lastAt > this.opts.staleMs) return false;
-    const { move, tilt } = this.intent;
-    return tilt || move.x !== 0 || move.y !== 0 || move.z !== 0;
+    const { move, tilt, aim } = this.intent;
+    return tilt || !!aim || move.x !== 0 || move.y !== 0 || move.z !== 0;
   }
 
   // Same shape as Keyboard.command(axes): { v: [vx, vy, vz] m/s world, pitchRate, rollRate }.
@@ -74,7 +77,7 @@ export class PhoneInput {
       if (g !== this.grip) this.syncGrip(g); // changed by keyboard or reset
     }
     const fresh = this.connected && performance.now() - this.lastAt <= o.staleMs;
-    const { move, wrist, tilt, center } = fresh ? this.intent : ZERO;
+    const { move, wrist, tilt, center, aim } = fresh ? this.intent : ZERO;
     const f = axes?.forward || [1, 0];
     const r = axes?.right || [0, -1];
     const v = [
@@ -95,6 +98,28 @@ export class PhoneInput {
       rollRate = clamp(o.wristGain * (wrist.roll - a.roll), o.rollRate);
       a.pitch += pitchRate * dt;
       a.roll += rollRate * dt;
+    }
+
+    // Motion mode: the phone reports how far the gripper should have moved since
+    // "Hold to move" was pressed; servo toward that, like the wrist above.
+    const m = this.aimApplied;
+    if (!aim) {
+      m.id = null;
+    } else if (m.id !== aim.id) {
+      Object.assign(m, { id: aim.id, x: 0, y: 0, z: 0, roll: 0 });
+    } else {
+      let d = [aim.pos.x - m.x, aim.pos.y - m.y, aim.pos.z - m.z].map((e) => e * o.aimGain);
+      const n = Math.hypot(...d);
+      if (n > o.aimSpeed) d = d.map((e) => e * o.aimSpeed / n);
+      m.x += d[0] * dt;
+      m.y += d[1] * dt;
+      m.z += d[2] * dt;
+      v[0] += f[0] * d[1] + r[0] * d[0];
+      v[1] += f[1] * d[1] + r[1] * d[0];
+      v[2] += d[2];
+      const rr = clamp(o.wristGain * (aim.roll - m.roll), o.rollRate);
+      m.roll += rr * dt;
+      rollRate += rr;
     }
     return { v, pitchRate, rollRate };
   }
