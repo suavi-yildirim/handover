@@ -82,6 +82,11 @@
     <!-- Where the (future) person's hand waits for a handover. Visual only. -->
     <site name="hand_zone" type="sphere" size="0.04" pos="0.12 0.28 0.12" material="hand_zone"/>
 
+    <!-- Dataset scene camera (observation.images.front): from the robot's right, looking
+         down at the table so the cup, tray, bottle and hand zone are all in view.
+         The wrist camera is wrist_cam in so101.xml. -->
+    <camera name="front" pos="0.12 -0.55 0.5" xyaxes="0.997 -0.083 0 0.053 0.637 0.769" fovy="60"/>
+
     <!-- Default play camera: behind and above the robot, looking along +x. -->
     <camera name="play" pos="-0.35 0 0.38" xyaxes="0 -1 0 0.6 0 0.8" fovy="50"/>
   </worldbody>

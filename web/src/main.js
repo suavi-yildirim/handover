@@ -5,6 +5,7 @@ import { Keyboard, KEY_HELP } from './keyboard.js';
 import { ROBOT } from './robot.js';
 import { PhoneInput, addCommands } from './phone.js';
 import { CupOnTrayTask, WEIGHTS } from './task.js';
+import { Recorder } from './recorder.js';
 
 const LEVEL = 'models/kitchen.xml';
 const MAX_STEPS_PER_FRAME = 50; // don't spiral if a frame takes too long
@@ -17,7 +18,17 @@ async function main() {
   const view = new Renderer($('view'), sim);
   const task = new CupOnTrayTask(sim, teleop.ik);
 
-  const reset = () => { sim.reset(); teleop.reset(); task.reset(); $('result').hidden = true; };
+  const recorder = new Recorder(sim, teleop, { level: LEVEL });
+
+  const reset = () => {
+    if (recorder.current) recorder.finish({ success: false, reason: 'reset before finishing' });
+    sim.reset(); teleop.reset(); task.reset();
+    recorder.start(task);
+    $('result').hidden = true;
+    showEpisodes(recorder);
+  };
+  recorder.start(task);
+  $('download').addEventListener('click', (e) => { recorder.download(); e.currentTarget.blur(); });
   const keys = new Keyboard({ onToggleGrip: () => teleop.toggleGrip(), onReset: reset });
   const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed), getGrip: () => teleop.gripClosed });
   phone.showBadge(document.body, { bottom: 64 });
@@ -28,7 +39,7 @@ async function main() {
   $('loading').remove();
 
   // Exposed for debugging and automated tests.
-  window.handover = { sim, teleop, view, keys, phone, task, reset };
+  window.handover = { sim, teleop, view, keys, phone, task, recorder, reset };
 
   let last = performance.now(), simLag = 0, fps = 0, frames = 0, fpsT = last;
   function frame(now) {
@@ -37,6 +48,8 @@ async function main() {
 
     const axes = view.groundAxes();
     teleop.command(addCommands(keys.command(axes), phone.command(axes, dt)), dt);
+    if (keys.active) recorder.noteInput('keyboard');
+    if (phone.active) recorder.noteInput('phone');
     teleop.apply(dt);
 
     simLag += dt;
@@ -45,6 +58,11 @@ async function main() {
     if (n === MAX_STEPS_PER_FRAME) simLag = 0;
 
     task.update();
+    recorder.update();
+    if (task.state !== 'playing' && recorder.current) {
+      recorder.finish(task.result);
+      showEpisodes(recorder);
+    }
     view.draw(teleop.target);
     showTask(task);
 
@@ -87,6 +105,11 @@ function showTask(task) {
     `<h2>Task complete</h2><div class="score">${r.score}<span>/100</span></div>` +
     `<p class="dim">${task.time.toFixed(1)} s · ${r.raw.bumps} bumps · max tilt ${r.raw.maxCarryTiltDeg.toFixed(0)}°` +
     ` · best ${best}</p><table>${rows}</table><p class="dim">Press <kbd>R</kbd> to play again.</p>`;
+}
+
+function showEpisodes(recorder) {
+  $('download').hidden = recorder.count === 0;
+  $('download').textContent = `Download ${recorder.count} episode${recorder.count === 1 ? '' : 's'}`;
 }
 
 // Best score is a per-browser convenience; storage may be unavailable.

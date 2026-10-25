@@ -2,6 +2,7 @@
 // different MJCF and update the names below; the rest of the game reads only this.
 
 export const ROBOT = {
+  id: 'so101',
   name: 'SO-101',
   // Joint names match LeRobot's SO-101 so logged episodes line up with real-robot datasets.
   armJoints: ['shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex'],

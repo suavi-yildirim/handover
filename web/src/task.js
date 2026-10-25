@@ -19,7 +19,9 @@ export class CupOnTrayTask {
   constructor(sim, ik) {
     this.sim = sim;
     this.ik = ik;
+    this.id = 'cup_on_tray';
     this.title = 'Put the cup on the tray';
+    this.instruction = 'Put the cup on the tray.'; // the exact prompt a trained policy gets
     this.hint = 'Pick up the blue cup and set it down upright on the green tray. Keep it level and don’t bump anything.';
     const { model } = sim;
     this.cup = sim.id('BODY', 'cup');
