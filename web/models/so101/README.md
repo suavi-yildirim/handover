@@ -32,8 +32,8 @@ MJCF](https://github.com/TheRobotStudio/SO-ARM100/blob/608122e9ac330a753735f2e18
 Made so the simulated arm is no stronger or grippier than a real SO-101 follower
 (see `docs/kitchen_realism.md`):
 
-- Arm torque limit is 1.91 N.m, the stall torque of the 7.4 V STS3215 (1/345), instead of 2.94 N.m (12 V).
-- Gripper torque limit is 0.95 N.m, because LeRobot's follower config caps the gripper at 50%.
+- Arm torque limit stays 2.94 N.m, the stall torque of the 12 V STS3215 (1/345) on our arm. For a 7.4 V arm use 1.91 N.m.
+- Gripper torque limit is 1.47 N.m, because LeRobot's follower config caps the gripper at 50%.
 - Jaw friction is 0.4 (bare PLA) instead of 1.
 
 ## License

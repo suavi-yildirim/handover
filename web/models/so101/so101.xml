@@ -37,11 +37,10 @@
            Lerobot. These position gains and forces were calculated according to
            https://github.com/Gregory119/RBE501-RL-arm-project/blob/main/gymnasium_env/README.md,
            assuming that the servo proportional gain is set to 16. -->
-      <!-- Handover: torque limit set to the stall torque of the 7.4 V STS3215 (1/345 gear,
-           19.5 kg.cm = 1.91 N.m) instead of the 12 V servo's 2.94 N.m. The weaker arm is the
-           safe choice: anything it can do, either real SO-101 follower can do too.
-           See docs/kitchen_realism.md. -->
-      <position kp="998.22" kv="2.731" forcerange="-1.91 1.91"/>
+      <!-- Handover: 2.94 N.m is the stall torque of the 12 V STS3215 (1/345 gear, 30 kg.cm),
+           the servos on Suavi's arm. Stall torque is the peak, so the sim is never stronger.
+           For a 7.4 V arm use 1.91 N.m. See docs/kitchen_realism.md. -->
+      <position kp="998.22" kv="2.731" forcerange="-2.94 2.94"/>
     </default>
 
     <default class="backlash">
@@ -265,6 +264,6 @@
     <position class="sts3215" name="wrist_roll" joint="wrist_roll" ctrlrange="-2.74385 2.84121"/>
     <!-- Handover: LeRobot's SO-101 follower caps the gripper servo at 50% torque
          (Max_Torque_Limit 500) so it can hold an object without overheating. -->
-    <position class="sts3215" name="gripper" joint="gripper" ctrlrange="-0.17453 1.74533" forcerange="-0.95 0.95"/>
+    <position class="sts3215" name="gripper" joint="gripper" ctrlrange="-0.17453 1.74533" forcerange="-1.47 1.47"/>
   </actuator>
 </mujoco>

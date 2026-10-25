@@ -20,9 +20,9 @@ MASS_TARGETS = {"cup": 0.073, "pill_bottle": 0.020}
 # Expected Coulomb friction against the table top (MuJoCo uses the larger of the two geoms).
 MU_TARGET = 0.40
 MU_TOL = 0.06
-# Real SO-101 follower torque limits in N.m: 7.4 V STS3215 stall torque, gripper capped at 50%.
-ARM_TORQUE = {"shoulder_pan": 1.91, "shoulder_lift": 1.91, "elbow_flex": 1.91,
-              "wrist_flex": 1.91, "wrist_roll": 1.91, "gripper": 0.95}
+# Real SO-101 follower torque limits in N.m: 12 V STS3215 stall torque, gripper capped at 50%.
+ARM_TORQUE = {"shoulder_pan": 2.94, "shoulder_lift": 2.94, "elbow_flex": 2.94,
+              "wrist_flex": 2.94, "wrist_roll": 2.94, "gripper": 1.47}
 
 failures = []
 

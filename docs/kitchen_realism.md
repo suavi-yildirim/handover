@@ -50,14 +50,14 @@ a real SO-101 can't repeat.
 
 | Setting | Value | Why |
 |---|---|---|
-| Arm joint torque limit | 1.91 N.m | Stall torque of the 7.4 V STS3215 (1/345 gear, 19.5 kg.cm). The 12 V servo gives 2.94 N.m, which is what Menagerie uses. We use the weaker one, so anything recorded is possible on either real arm |
-| Gripper torque limit | 0.95 N.m | LeRobot's SO-101 follower sets the gripper's Max_Torque_Limit to 50% so it can hold objects without overheating |
+| Arm joint torque limit | 2.94 N.m | Stall torque of the 12 V STS3215 (1/345 gear, 30 kg.cm), the servos on our real arm. Stall torque is the peak, so the sim is never stronger than the real arm. A 7.4 V arm would need 1.91 N.m |
+| Gripper torque limit | 1.47 N.m | LeRobot's SO-101 follower sets the gripper's Max_Torque_Limit to 50% so it can hold objects without overheating |
 | Position gains | kp 998, kv 2.73 (Menagerie) | They assume LeRobot's P coefficient of 16. Not system-identified yet |
 | Backlash | none | Menagerie defines 0.5 deg backlash but applies it to no joint. Leave it until there is a real arm to measure |
 
 Margins: holding the 73 g cup, the worst static gravity torque anywhere above the
-table is 1.15 N.m (shoulder lift), 60% of the limit. All task tests pass with these
-limits, and still pass with jaw friction 0.3 or a 0.6 N.m gripper.
+table is 1.15 N.m (shoulder lift), 39% of the limit. All task tests pass with these
+limits, and also with 7.4 V limits, jaw friction 0.3, or a 0.6 N.m gripper.
 
 ## Checks
 
