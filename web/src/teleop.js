@@ -3,6 +3,8 @@
 import { ROBOT } from './robot.js';
 import { ArmIK } from './ik.js';
 
+const VELOCITY_SMOOTHING = 0.15; // s, time constant of the target velocity filter
+
 export class Teleop {
   constructor(sim) {
     this.sim = sim;
@@ -15,6 +17,7 @@ export class Teleop {
     const { data } = this.sim;
     this.q = this.ik.qadr.map((a) => data.qpos[a]);
     this.target = this.ik.graspPoint(data);
+    this.vel = [0, 0, 0];
     this.pitch = ROBOT.defaultPitch;
     this.roll = ROBOT.defaultRoll;
     this.gripClosed = false;
@@ -23,9 +26,14 @@ export class Teleop {
   }
 
   // v: [vx, vy, vz] m/s in world frame, pitchRate / rollRate rad/s, dt seconds.
+  // The commanded velocity is low-pass filtered so on/off inputs like keys still give
+  // smooth motion (smoother demos are better training data).
   command({ v = [0, 0, 0], pitchRate = 0, rollRate = 0 }, dt) {
-    const t = this.target;
-    for (let i = 0; i < 3; i++) t[i] += v[i] * dt;
+    const t = this.target, a = 1 - Math.exp(-dt / VELOCITY_SMOOTHING);
+    for (let i = 0; i < 3; i++) {
+      this.vel[i] += (v[i] - this.vel[i]) * a;
+      t[i] += this.vel[i] * dt;
+    }
     this.clampTarget();
     this.pitch = Math.min(Math.PI / 2, Math.max(-Math.PI / 6, this.pitch + pitchRate * dt));
     const [rlo, rhi] = this.jointRange(ROBOT.rollJoint);

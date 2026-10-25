@@ -33,7 +33,7 @@ checks and scoring, episode logging, and one trained policy that plays the level
 Build order:
 
 1. ✅ Arm in a browser kitchen scene, keyboard-controlled.
-2. Success check + score, the first playable demo.
+2. ✅ Success check + score, the first playable demo ([task definitions](docs/tasks.md)).
 3. Phone control.
 4. Episode logging, training pipeline, and the model playing the level.
 
@@ -60,8 +60,11 @@ Then open <http://localhost:8000>.
 | R | reset the level |
 | Mouse | orbit and zoom the camera |
 
-Try it: open the gripper above the blue cup, lower it around the cup, press Space to
-grip, lift, and set the cup down upright on the green tray.
+Task: pick up the blue cup and set it down upright on the green tray. The panel on the
+left shows which success checks are met; when all hold, you get a score out of 100 for
+speed, smooth motion, no bumps, keeping the cup level, and no drops. Tip: lower the open
+gripper around the cup with E/Q, press Space to grip, lift, move over the tray, lower,
+and press Space again to let go.
 
 ## Tests
 
@@ -70,7 +73,7 @@ node tests/pick_place.mjs
 ```
 
 Runs the game's own simulation and control code headlessly and checks that a scripted
-player can pick up the cup and place it upright on the tray. Needs Node 18+.
+player can pick up the cup, place it upright on the tray, and get a success and a score. Needs Node 18+.
 
 ## Project layout
 
@@ -83,6 +86,7 @@ web/
     ik.js               end-effector inverse kinematics (damped least squares)
     teleop.js           turns "move the gripper" commands into servo targets
     keyboard.js         keyboard input
+    task.js             success predicates and scoring
     render.js           three.js rendering of the MuJoCo scene
     main.js             game loop and HUD
   models/
@@ -90,7 +94,9 @@ web/
     so101/              SO-101 arm (MuJoCo Menagerie, Apache-2.0)
   vendor/               MuJoCo WASM 3.16.0 and three.js 0.186.1, pinned
 tests/
-  pick_place.mjs        headless pick-and-place check
+  pick_place.mjs        headless pick-and-place + scoring check
+docs/
+  tasks.md              success predicates and score weights for each task
 CLAUDE.md               full product and technical context
 ```
 
