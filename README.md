@@ -219,7 +219,7 @@ related research.
 
 ## License
 
-Handover is meant to be open source; a license for its own code hasn't been picked yet
-(Apache-2.0 would match MuJoCo and the robot model). The SO-101 model (`web/models/so101`) is Apache-2.0 from
+Handover is open source under the [Apache License 2.0](LICENSE), copyright 2026 the
+Handover contributors. The SO-101 model (`web/models/so101`) is Apache-2.0 from
 [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie); MuJoCo is
-Apache-2.0 and three.js is MIT, with their licenses in `web/vendor`.
+Apache-2.0, three.js and qrcode-generator are MIT, with their licenses in `web/vendor`.
