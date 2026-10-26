@@ -1,0 +1,15 @@
+# Cloudflare Worker that receives Handover episodes and commits them to the Hugging Face dataset.
+# Deploy from this folder: npx wrangler login, npx wrangler secret put HF_TOKEN, npx wrangler deploy
+name = "handover-upload"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"] # native Buffer for fast base64
+workers_dev = true
+
+[vars]
+DATASET_REPO = "suavi-yildirim/handover-episodes"
+# The game's own pages: GitHub Pages and the local server. Add others as needed.
+ALLOWED_ORIGINS = "https://suavi-yildirim.github.io,http://localhost:8000,https://localhost:8443"
+
+[observability]
+enabled = false # request logs would include IP addresses

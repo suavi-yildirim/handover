@@ -61,8 +61,8 @@ check('nothing is sent before the player opts in', !sharer.enabled && received.l
 check('without an upload address, sharing is unavailable', !new Sharer(rec, { url: '', storage: store }).available);
 
 await sharer.enable();
-check('opting in sends the episodes already played', received.length === 1 &&
-  received[0].ids.join() === 's1,s2' && sharer.sent === 2 && sharer.state === 'idle');
+check('opting in sends the episodes already played, one per request', received.length === 2 &&
+  received.map((r) => r.ids.join()).join() === 's1,s2' && sharer.sent === 2 && sharer.state === 'idle');
 check('the choice is remembered', store.getItem('handover.share') === 'on' &&
   new Sharer(rec, { url: URL_OK, storage: store }).enabled);
 
@@ -71,8 +71,14 @@ await sharer.add(ep('f1'));
 check('a failed upload keeps the episode queued', sharer.state === 'error' && sharer.queue.length === 1);
 reply = { status: 200, body: { saved: 2, duplicates: 0 } };
 await sharer.add(ep('f2'));
-check('the next episode takes the queued one along', received.at(-1).ids.join() === 'f1,f2' &&
+check('the next episode sends the queued one too', received.slice(-2).map((r) => r.ids.join()).join() === 'f1,f2' &&
   sharer.queue.length === 0 && sharer.sent === 4);
+
+reply = { status: 503, body: {} };
+sharer.queue = [ep('stuck')];
+for (let i = 0; i < 3; i++) await sharer.flush(); // e.g. too large for the Worker's CPU budget
+check('an episode that keeps failing is given up after 3 tries', sharer.queue.length === 0 &&
+  sharer.sentIds.has('stuck') && sharer.message.includes('Gave up'));
 
 reply = { status: 400, body: { detail: 'bad file' } };
 await sharer.add(ep('bad'));

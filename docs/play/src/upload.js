@@ -1,15 +1,16 @@
 // Sharing episodes with the Handover dataset. The player turns sharing on once, after a
 // consent step in the page; from then on each finished episode is sent in the background to
-// the project's Hugging Face Space (server/hf_space), which checks it and saves it to the
-// dataset. No login and no key in the game: the Space holds the upload token.
+// the project's Cloudflare Worker (server/cf_worker), which checks it and commits it to the
+// Hugging Face dataset. No login and no key in the game: the Worker holds the upload token.
 // See docs/upload.md for setup and the privacy notes.
 
-// The Space's upload address, e.g. 'https://suavi-yildirim-handover-upload.hf.space/episodes'.
-// Empty until the Space exists; sharing then shows as not set up.
+// The upload Worker's address, e.g. 'https://handover-upload.<account>.workers.dev/episodes'.
+// Empty until the Worker is deployed; sharing then shows as not set up.
 export const UPLOAD_URL = '';
 
-const MAX_PER_UPLOAD = 20; // the Space accepts up to 50
-const TIMEOUT_MS = 90000; // a free Space that was asleep takes about 30 s to wake
+const MAX_PER_UPLOAD = 1; // one episode per request keeps the Worker in the free plan's CPU budget
+const MAX_TRIES = 3; // an episode that fails this often is dropped (it stays downloadable)
+const TIMEOUT_MS = 30000;
 
 // retry: whether sending the same file again later could work (network, asleep, rate limit),
 // as opposed to the server rejecting the file itself.
@@ -36,7 +37,8 @@ export async function uploadEpisodes(blob, url = UPLOAD_URL, fetchImpl = globalT
   const why = typeof body?.detail === 'string' ? body.detail : `error ${res.status}`;
   if (res.status === 429) throw new UploadError('Too many uploads for now.', true);
   if (res.status === 400 || res.status === 413) throw new UploadError(`The server refused the file: ${why}.`, false);
-  throw new UploadError('The upload server is busy or waking up.', true);
+  if (res.status === 503) throw new UploadError("Sharing isn't set up on the server yet.", true);
+  throw new UploadError('The upload server is busy.', true);
 }
 
 // Keeps the player's sharing choice and sends finished episodes while it is on. Episodes
@@ -49,7 +51,8 @@ export class Sharer {
     this.fetchImpl = fetchImpl;
     this.storage = storage;
     this.queue = [];
-    this.sentIds = new Set();
+    this.sentIds = new Set(); // episodes that are done: shared, refused or given up on
+    this.tries = new Map(); // episode_id -> failed attempts
     this.sent = 0; // episodes shared in this session
     this.state = this.enabled ? 'idle' : 'off'; // off | idle | sending | error
     this.message = '';
@@ -100,6 +103,10 @@ export class Sharer {
       if (err instanceof UploadError && !err.retry) {
         this.done(batch); // sending it again would be refused again
         this.set('error', `${err.message} Download keeps a copy.`);
+      } else if (batch.every((e) => this.failed(e) >= MAX_TRIES)) {
+        this.done(batch);
+        this.set('error', `${err.message ?? 'Sharing failed.'} Gave up on this episode after ${MAX_TRIES} tries; ` +
+          'Download keeps a copy.');
       } else {
         this.set('error', `${err.message ?? 'Sharing failed.'} Kept here; it goes with your next episode.`);
       }
@@ -108,6 +115,12 @@ export class Sharer {
     }
     this.busy = false;
     if (this.queue.length) await this.flush();
+  }
+
+  failed(ep) {
+    const n = (this.tries.get(ep.episode_id) || 0) + 1;
+    this.tries.set(ep.episode_id, n);
+    return n;
   }
 
   done(batch) {

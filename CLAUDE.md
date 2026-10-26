@@ -158,7 +158,7 @@ Open, game-first (phone, Steam, Quest), care-focused, caregivers as teachers, an
 - Document success predicates and scoring weights for every new task.
 - Commit as `Suavi Yildirim <345443090+suavi-yildirim@users.noreply.github.com>` (git config per clone), with no Claude co-author or session trailers.
 - Any change to the scene, physics or scoring bumps `GAME_VERSION` in `web/src/recorder.js` and regenerates `tests/fixtures/` (pass the fixture path to each test). Episodes from different versions must not be mixed silently.
-- Run all tests before pushing: `node tests/pick_place.mjs`, `tests/medication.mjs`, `tests/fall_hazard.mjs`, `tests/spacemouse.mjs`.
+- Run all tests before pushing: `node tests/pick_place.mjs`, `tests/medication.mjs`, `tests/fall_hazard.mjs`, `tests/spacemouse.mjs`, `tests/upload.mjs`, `server/cf_worker/test.mjs`.
 
 ## 11. Current state and lessons learned (2026-10-25)
 
@@ -185,6 +185,7 @@ What has been built and decided since the plan above. The sections above remain 
 ### Episodes and training
 - Browser records full sim state (qpos, qvel, ctrl in radians) on an exact 30 Hz sim-time grid, plus intent, events, tags; exported as `.jsonl.gz` (one episode per line). Log states, not video: cameras are rendered later.
 - `training/` (training thread) converts raw episodes to a LeRobot v3.0 dataset: joints in degrees, gripper 0–100, 30 fps, 480×640 `front` (kitchen.xml) and `wrist_cam` (so101.xml) views. Schema in `docs/episode_schema.md`. Only successful, CC BY 4.0 episodes are kept by default; filter by `game_version` because layouts and arm strength changed (0.3.0 old layout, 0.4.x level start).
+- Sharing (`docs/upload.md`): players opt in once (consent dialog: CC BY 4.0, contents, IP handling, contributor ID for removal); then each finished episode is POSTed to a free Cloudflare Worker (`server/cf_worker`) that validates it and commits it to the private HF dataset `suavi-yildirim/handover-episodes`. The HF token is a Worker secret only, never in the game. `UPLOAD_URL` in `web/src/upload.js` stays empty until the Worker is deployed. Sharing must stay opt-in (GDPR). Free plan CPU limit (~10 ms) means one episode per request.
 - SmolVLA fine-tuning runs on a **free Colab T4** (`training/colab_train.ipynb`) because the 8 GB Mac is too slow; `policy_server.py` + `rollout.mjs` let the trained policy play the level in the game's own sim and scoring. π0.5 is planned as a later comparison.
 
 ### Controls
