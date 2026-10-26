@@ -167,7 +167,7 @@ What has been built and decided since the plan above. The sections above remain 
 ### Repo, licenses, running
 - Repo: github.com/suavi-yildirim/handover (account renamed from syldrm3141; old URLs redirect). Local copy: `~/Documents_SY/05_Projects/Handover`.
 - Code is Apache-2.0 (LICENSE, NOTICE lists MuJoCo, the SO-101 model, three.js and qrcode-generator). Recorded play data is CC BY 4.0; every episode carries `"license": "CC-BY-4.0"`. Copyright and attribution: "Suavi Yildirim and the Handover contributors".
-- Run: `python3 tools/phone_server.py` from the repo root, then open http://localhost:8000 (phone page over HTTPS on :8443). Static web app, no build step; MuJoCo WASM 3.16.0 and three.js 0.186.1 are vendored in `web/vendor`.
+- Run (Terminal, from the downloaded repo root; the folder is `handover` or `handover-main`): keyboard only, `cd web && python3 -m http.server 8000`; with phone control, `python3 tools/phone_server.py` from the repo root. Then open http://localhost:8000 (phone page over HTTPS on :8443). Static web app, no build step; MuJoCo WASM 3.16.0 and three.js 0.186.1 are vendored in `web/vendor`.
 - Dev machine is a MacBook M2 with **8 GB RAM**: fine for playing and sim, too slow for SmolVLA training.
 
 ### Robot and physics
