@@ -42,6 +42,7 @@ async function main() {
   };
   recorder.start(task);
   $('download').addEventListener('click', (e) => { recorder.download(); e.currentTarget.blur(); });
+  $('welcome-download').addEventListener('click', () => recorder.download());
   setupShare(sharer);
   const keys = new Keyboard({ onToggleGrip: () => teleop.toggleGrip(), onReset: reset });
   window.addEventListener('keydown', (e) => {
@@ -196,8 +197,11 @@ function showTask(task) {
 }
 
 function showEpisodes(recorder) {
+  const label = `Download ${recorder.count} episode${recorder.count === 1 ? '' : 's'}`;
   $('download').hidden = recorder.count === 0;
-  $('download').textContent = `Download ${recorder.count} episode${recorder.count === 1 ? '' : 's'}`;
+  $('download').textContent = label;
+  $('welcome-download').hidden = recorder.count === 0;
+  $('welcome-download').textContent = label;
 }
 
 // Sharing is opt-in: the consent dialog says what an episode holds, that episodes are
@@ -207,12 +211,18 @@ function showEpisodes(recorder) {
 function setupShare(sharer) {
   const button = $('send-episodes'), status = $('share-status'), toast = $('share-toast');
   const dialog = $('send-dialog'), consent = $('send-consent'), go = $('send-go');
+  const welcome = $('welcome'), welcomeShare = $('welcome-share');
   let toastTimer = 0;
   function show() {
     button.hidden = false;
     button.disabled = !sharer.available;
     button.textContent = !sharer.available ? 'Sharing isn\'t set up yet'
       : sharer.enabled ? 'Sharing on · click to stop' : 'Share my episodes';
+    // The welcome card asks once per page load; it goes away once sharing is on.
+    if (sharer.enabled) welcome.hidden = true;
+    welcomeShare.disabled = !sharer.available;
+    welcomeShare.textContent = !sharer.available ? 'Sharing isn\'t set up yet'
+      : sharer.enabled ? 'Sharing is on · thank you!' : 'Share my episodes';
     status.hidden = !sharer.message;
     status.textContent = sharer.message;
     status.classList.toggle('error', sharer.state === 'error');
@@ -237,6 +247,11 @@ function setupShare(sharer) {
     $('send-id').textContent = contributorId() ?? '(not available in this browser)';
     dialog.showModal();
   });
+  welcomeShare.addEventListener('click', () => {
+    if (sharer.enabled) return;
+    button.click();
+  });
+  $('welcome-play').addEventListener('click', () => { welcome.hidden = true; });
   consent.addEventListener('change', () => { go.disabled = !consent.checked; });
   go.addEventListener('click', () => {
     dialog.close();

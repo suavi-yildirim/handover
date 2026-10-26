@@ -93,6 +93,21 @@
       align-items: center; gap: 8px; font-size: 13px; padding: 8px 14px; white-space: nowrap; }
     #speed input { width: min(240px, 40vw); accent-color: var(--accent); cursor: pointer; }
     #speed output { min-width: 42px; text-align: right; font: 12px ui-monospace, Menlo, monospace; }
+    /* Welcome card in the middle of the first screen: thanks, sharing first, then play. */
+    #welcome { top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 12; width: min(420px, calc(100vw - 32px));
+      box-sizing: border-box; padding: 26px 24px 22px; text-align: center; border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18); }
+    #welcome h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.2; }
+    #welcome p { margin: 8px 0; font-size: 14px; }
+    #welcome small { opacity: 0.7; font-size: 12px; }
+    #welcome button { display: block; width: 100%; box-sizing: border-box; margin-top: 10px; padding: 12px; border-radius: 10px;
+      font: inherit; font-size: 15px; cursor: pointer; color: var(--ink); background: #fff; border: 1px solid #c9d1d6; }
+    #welcome button[hidden] { display: none; }
+    #welcome button:hover { border-color: var(--accent); }
+    #welcome-share { background: var(--accent); border-color: var(--accent); color: #fff; font-size: 17px; font-weight: 700; }
+    #welcome-share:hover { color: #fff; filter: brightness(1.05); }
+    #welcome-share:disabled { opacity: 0.6; cursor: default; }
+    #welcome-play { background: none; border: 0; text-decoration: underline; opacity: 0.75; margin-top: 4px; }
     @media (prefers-reduced-motion: reduce) { #drawer, #menu-toggle { transition: none; } }
   </style>
 </head>
@@ -145,6 +160,15 @@
       </div>
     </form>
   </dialog>
+  <div id="welcome" class="panel" role="dialog" aria-labelledby="welcome-title">
+    <h2 id="welcome-title">Thank you for helping train care robots</h2>
+    <p>Every run you play teaches a robot an everyday task, like bringing medicine, handing over a cup or tidying
+      a fall hazard. Shared episodes build an open dataset that anyone can use to build caring robots.</p>
+    <button type="button" id="welcome-share">Share my episodes</button>
+    <button type="button" id="welcome-download" hidden></button>
+    <small>Sharing is optional and off until you turn it on. Episodes are published under CC BY 4.0.</small>
+    <button type="button" id="welcome-play">Just play</button>
+  </div>
   <div id="result" class="panel" hidden></div>
   <div id="share-toast" class="panel" role="status" aria-live="polite" hidden></div>
   <div id="view-labels"></div>
