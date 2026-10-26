@@ -6,7 +6,7 @@
 
 // The upload Worker's address, e.g. 'https://handover-upload.<account>.workers.dev/episodes'.
 // Empty until the Worker is deployed; sharing then shows as not set up.
-export const UPLOAD_URL = '';
+export const UPLOAD_URL = 'https://handover-upload.suavi-handover.workers.dev/episodes';
 
 const MAX_PER_UPLOAD = 1; // one episode per request keeps the Worker in the free plan's CPU budget
 const MAX_TRIES = 3; // an episode that fails this often is dropped (it stays downloadable)
