@@ -129,11 +129,53 @@ safe spot (0.12, −0.31), hand zone (0.12, 0.28, 0.12). Targets the arm can't r
 commanded tilt are refused (the gripper slides along the reach limit or stops) instead of
 letting the IK fold the arm into a different pose.
 
+## Messy kitchen: random scenes
+
+`web/src/scene.js` samples a scene from a seed (same seed, same scene) and writes it into the
+model; nothing in the success predicates or the score changes. Every object has a reach
+region, measured with `node tests/reach_map.mjs`. A level gripper reaches the table only
+between about 28 and 41 cm from the shoulder axis, the game's workspace stops at 36 cm, and
+the grasp point must stay at 29.5 cm or more, so:
+
+| Thing | Distance from the shoulder | Angle from +x | Other |
+|---|---|---|---|
+| Cup | 30–35 cm | −15° to 55° | handle direction: mostly along or against the radial, never 95–145° off it (the handle then catches a jaw) |
+| Medicine bottle | 30–35 cm | −30° to 40° | |
+| Glasses case | 33.5–35.5 cm | 52° to 66° | stays in the red edge strip; long side points at the robot ±15° |
+| Tray | 31–34 cm | −65° to −12° | |
+| Safe spot | 30–34 cm | −72° to −40° | |
+| Hand zone | 27–33 cm | 25° to 65° | height 10–14 cm |
+
+Objects keep apart (no overlaps, tray and safe spot 17 cm apart). Also randomized: friction
+of the props 0.28–0.55, table 0.30–0.50 and jaws 0.30–0.60 (the standard values are 0.35, 0.4
+and 0.4), prop mass ×0.8–1.3, and light brightness ×0.6–1.3. Object size is not randomized
+yet: the props are compiled meshes, so sizes come with the realism thread's object set.
+
+The scene is stored in each episode as `scene` (positions, yaw, friction, mass, light) and
+`scene_seed`, since none of it except the object poses is part of `qpos`; an offline
+renderer applies it before replaying the states. `scene: null` means the standard layout.
+
+## Automatic demos
+
+`web/src/planner.js` plays a task the way the scripted tests do (hover over the object, lower
+the open jaws, close, lift, carry, place, let go), but reads poses from the simulation every
+frame, so it follows an object that moved and goes back for a second grasp when the object
+slips (up to three times). Carries turn around the shoulder instead of cutting across it,
+because a straight line between two far-apart spots crosses the unreachable zone near the
+robot. A held object turns with the arm, so the planner keeps its offset in
+radial/tangential terms; the glasses case is gripped by its near end and the goal is set so
+its center lands in the safe spot. Speed varies per seed (9–16 cm/s). The planner checks the
+whole route with the IK first, and unreachable layouts are skipped.
+
+`tools/generate_demos.mjs` writes episodes from planner runs in random scenes and drops
+failures. Over 100 random seeds each: cup on tray, medicine bottle and glasses case all
+succeed; mean scores are 99.8, 96.3 and 100 (300 episodes in 3.5 minutes on one core, about 40 KB each compressed). These are episodes with `source: "planner"`.
+
 ## Episode tags and events
 
 Each recorded episode also carries `license` (`CC-BY-4.0`: recorded play data is released
 under CC BY 4.0, attribution "Suavi Yildirim and the Handover contributors"), `contributor_id` (random, per browser), `inputs`,
-`game_version`, `mujoco_version`, `scene_seed` (null until scenes are randomized), and an
+`game_version`, `mujoco_version`, `scene_seed` (null for the standard layout), `scene` (see Messy kitchen), `source` (`human`, `planner` or `planner+human`), and an
 `events` list of `{t, type}` with type `grasp`, `release`, `drop`, `success`, or `fail`.
 
 ## Ideas not in the score yet

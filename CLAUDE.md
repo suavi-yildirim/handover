@@ -158,7 +158,7 @@ Open, game-first (phone, Steam, Quest), care-focused, caregivers as teachers, an
 - Document success predicates and scoring weights for every new task.
 - Commit as `Suavi Yildirim <345443090+suavi-yildirim@users.noreply.github.com>` (git config per clone), with no Claude co-author or session trailers.
 - Any change to the scene, physics or scoring bumps `GAME_VERSION` in `web/src/recorder.js` and regenerates `tests/fixtures/` (pass the fixture path to each test). Episodes from different versions must not be mixed silently.
-- Run all tests before pushing: `node tests/pick_place.mjs`, `tests/medication.mjs`, `tests/fall_hazard.mjs`, `tests/spacemouse.mjs`, `tests/upload.mjs`, `server/cf_worker/test.mjs`.
+- Run all tests before pushing: `node tests/pick_place.mjs`, `tests/medication.mjs`, `tests/fall_hazard.mjs`, `tests/spacemouse.mjs`, `tests/scene_check.mjs`, `tests/upload.mjs`, `server/cf_worker/test.mjs`.
 
 ## 11. Current state and lessons learned (2026-10-25)
 

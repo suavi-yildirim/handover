@@ -1,12 +1,8 @@
 // Shared setup for headless tests: loads the game's own Sim, Teleop, task and recorder
 // code in Node (no browser, no GPU) and drives the gripper target like a player would.
-import http from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { WEB, loadSim } from '../tools/headless.mjs';
 
-const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
-const { Sim } = await import(path.join(WEB, 'src/sim.js'));
 const { Teleop } = await import(path.join(WEB, 'src/teleop.js'));
 const { TASKS } = await import(path.join(WEB, 'src/task.js'));
 const { Recorder, FPS: REC_FPS } = await import(path.join(WEB, 'src/recorder.js'));
@@ -15,13 +11,7 @@ export { REC_FPS };
 export const FPS = 60;
 
 export async function setup(taskId) {
-  // Sim loads the level over HTTP like the browser does, so serve web/ briefly.
-  const server = http.createServer(async (req, res) => {
-    try { res.end(await readFile(path.join(WEB, decodeURIComponent(req.url)))); }
-    catch { res.statusCode = 404; res.end(); }
-  }).listen(0);
-  const sim = await Sim.create(`http://localhost:${server.address().port}/models/kitchen.xml`);
-  server.close();
+  const sim = await loadSim('models/kitchen.xml');
   const teleop = new Teleop(sim);
   const task = TASKS.map((T) => new T(sim, teleop.ik)).find((t) => t.id === taskId);
   const recorder = new Recorder(sim, teleop, { level: 'models/kitchen.xml' });

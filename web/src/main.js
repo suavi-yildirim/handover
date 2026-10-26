@@ -7,6 +7,8 @@ import { PhoneInput, addCommands } from './phone.js';
 import { SpaceMouseInput } from './spacemouse.js';
 import { TASKS } from './task.js';
 import { Recorder, contributorId } from './recorder.js';
+import { Planner } from './planner.js';
+import { sampleScene, resetScene } from './scene.js';
 import { Sharer } from './upload.js';
 
 const LEVEL = 'models/kitchen.xml';
@@ -24,13 +26,37 @@ async function main() {
   const recorder = new Recorder(sim, teleop, { level: LEVEL });
   const sharer = new Sharer(recorder);
 
-  const reset = () => {
-    if (recorder.current) sharer.add(recorder.finish({ success: false, reason: 'reset before finishing' }, task.events));
-    sim.reset(); teleop.reset(); task.reset();
-    recorder.start(task);
+  // "Messy kitchen": every reset puts the objects somewhere else (within reach), with different
+  // friction, weight and light. The scene is saved with the episode.
+  let messy = load('handover.messy') === '1', autoDemo = null, scene = null;
+  const share = (ep) => { if (ep && ep.source !== 'planner') sharer.add(ep); };
+  const reset = ({ demo = false } = {}) => {
+    if (recorder.current) share(recorder.finish({ success: false, reason: 'reset before finishing' }, task.events));
+    autoDemo = null;
+    scene = null;
+    if (messy) {
+      // Try layouts until the arm can do this task in them (almost all can).
+      for (let tries = 0; tries < 10 && !scene; tries++) {
+        const candidate = sampleScene(Math.floor(Math.random() * 2 ** 31));
+        resetScene(sim, candidate); teleop.reset(); task.reset();
+        if (new Planner(sim, teleop, task).reachable()) scene = candidate;
+      }
+    }
+    resetScene(sim, scene); teleop.reset(); task.reset();
+    view.refreshFixed(); // the tray and the zones may have moved
+    if (window.handover) window.handover.scene = scene;
+    if (demo) autoDemo = new Planner(sim, teleop, task, { seed: scene?.seed ?? 0 });
+    recorder.start(task, { scene, source: demo ? 'planner' : 'human' });
+    if (demo) recorder.noteInput('planner');
     $('result').hidden = true;
     shownState = null;
     showEpisodes(recorder);
+  };
+  const setMessy = (on) => {
+    messy = on;
+    save('handover.messy', on ? '1' : '0');
+    $('messy').checked = on;
+    reset();
   };
   const selectTask = (i) => {
     task = tasks[i];
@@ -49,6 +75,8 @@ async function main() {
     const i = Number(e.key) - 1;
     if (i >= 0 && i < tasks.length && !e.repeat) selectTask(i);
     if (e.code === 'KeyM' && !e.repeat) setMenu(!drawer.classList.contains('open'));
+    if (e.code === 'KeyN' && !e.repeat) { setMessy(!messy); e.preventDefault(); }
+    if (e.code === 'KeyP' && !e.repeat) reset({ demo: true });
     if (e.code === 'KeyC' && !e.repeat && view.wrist) view.showWrist = !view.showWrist;
     if (e.code === 'KeyV' && !e.repeat) setLayout(view.layout === 'quad' ? 'single' : 'quad');
   });
@@ -65,6 +93,10 @@ async function main() {
   smButton.hidden = !spacemouse.supported;
   smButton.addEventListener('click', (e) => { spacemouse.connect().catch(console.error); e.currentTarget.blur(); });
 
+  $('messy').checked = messy;
+  $('messy').addEventListener('change', (e) => { setMessy(e.target.checked); e.target.blur(); });
+  $('auto-demo').addEventListener('click', (e) => { reset({ demo: true }); e.currentTarget.blur(); });
+  if (messy) reset();
   $('task-select').innerHTML = tasks.map((t, i) => `<option value="${i}">${i + 1}. ${t.title}</option>`).join('');
   $('task-select').value = String(tasks.indexOf(task));
   $('task-select').addEventListener('change', (e) => { selectTask(Number(e.target.value)); e.target.blur(); });
@@ -136,7 +168,14 @@ async function main() {
 
     const axes = view.groundAxes();
     const cmd = addCommands(addCommands(keys.command(axes), phone.command(axes, dt)), spacemouse.command(axes));
-    teleop.command(scaleCommand(cmd, speed), dt);
+    // The automatic demo drives until the player touches a control; then the player has it.
+    const touched = keys.active || phone.active || spacemouse.active;
+    if (autoDemo && touched) {
+      autoDemo = null;
+      if (recorder.current) recorder.current.source = 'planner+human';
+    }
+    if (autoDemo) { autoDemo.update(dt); if (autoDemo.state !== 'running') autoDemo = null; }
+    else teleop.command(scaleCommand(cmd, speed), dt);
     if (keys.active) recorder.noteInput('keyboard');
     if (phone.active) recorder.noteInput('phone');
     if (spacemouse.active) recorder.noteInput('spacemouse');
@@ -149,7 +188,7 @@ async function main() {
 
     task.update();
     if (task.state !== 'playing' && recorder.current) {
-      sharer.add(recorder.finish(task.result, task.events));
+      share(recorder.finish(task.result, task.events));
       showEpisodes(recorder);
     }
     view.draw(teleop.target);

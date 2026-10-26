@@ -163,6 +163,25 @@ Recorded play data (episodes and the datasets built from them) is released under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), attribution "Suavi Yildirim
 and the Handover contributors". Every episode carries `"license": "CC-BY-4.0"`.
 
+### Messy kitchen and automatic demos
+
+Press **N** (or tick *Messy kitchen* in the menu) and every try puts the objects somewhere
+new, always within the arm's reach, with different friction, weight and light. Press **P**
+to watch the automatic demo play the task in the current layout; touch any control and it
+hands over to you. The layout is saved in the episode (`scene`, `scene_seed`) and
+`source` says who drove: `human`, `planner`, or `planner+human`. Episodes driven only by
+the planner are not offered for sharing.
+
+To generate demos overnight, headless, no browser or GPU needed:
+
+```sh
+node tools/generate_demos.mjs --count 100 --seed 1 --out demos.jsonl.gz
+# optional: --tasks cup_on_tray,bring_medication,tidy_fall_hazard  --min-score 85
+```
+
+Each seed gives one random scene per task; failed episodes are dropped and the summary
+shows how many were kept per task. How the layouts are limited is in `docs/tasks.md`.
+
 ## Tests
 
 ```sh
@@ -170,6 +189,7 @@ node tests/pick_place.mjs
 node tests/medication.mjs
 node tests/fall_hazard.mjs
 node tests/spacemouse.mjs
+node tests/scene_check.mjs
 ```
 
 Runs the game's own simulation and control code headlessly and checks that a scripted
@@ -190,6 +210,8 @@ web/
     spacemouse.js       3D mouse input (WebHID)
     phone.js            phone input (game side): same commands as the keyboard
     task.js             success predicates and scoring
+    scene.js            random scenes (object positions, friction, mass, light)
+    planner.js          automatic demo player (replans from the current state)
     recorder.js         episode recording (30 fps raw sim state)
     render.js           three.js rendering of the MuJoCo scene
     main.js             game loop and HUD
@@ -200,11 +222,15 @@ web/
   vendor/               MuJoCo WASM 3.16.0 and three.js 0.186.1, pinned
 tools/
   phone_server.py       local server: HTTP for the Mac, HTTPS + WebSocket relay for the phone
+  generate_demos.mjs    automatic demos in random scenes, written as episodes
+  headless.mjs          loads the game's simulation in Node (tests and tools)
 tests/
   harness.mjs           shared headless test setup
   pick_place.mjs        task 1: pick-and-place, scoring and recording check
   medication.mjs        task 2: handover check
   fall_hazard.mjs       task 3: fall-hazard check
+  scene_check.mjs       random scenes and the automatic planner
+  reach_map.mjs         prints where the arm can reach the table
   fixtures/             one scripted episode per task, for the training pipeline
 docs/
   tasks.md              success predicates and score weights for each task

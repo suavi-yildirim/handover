@@ -5,7 +5,7 @@
 import { ROBOT } from './robot.js';
 
 export const FORMAT_VERSION = 1;
-export const GAME_VERSION = '0.4.4';
+export const GAME_VERSION = '0.5.0';
 export const DATA_LICENSE = 'CC-BY-4.0'; // recorded play data; the code is Apache-2.0
 export const FPS = 30;
 
@@ -43,7 +43,9 @@ export class Recorder {
     this.current = null;
   }
 
-  start(task) {
+  // meta: { scene, source } where scene is the randomized scene from scene.js (null for the
+  // standard layout) and source says who drives: 'human' (default) or 'planner'.
+  start(task, { scene = null, source = 'human' } = {}) {
     this.current = {
       format: 'handover-episode',
       version: FORMAT_VERSION,
@@ -60,7 +62,9 @@ export class Recorder {
       license: DATA_LICENSE,
       game_version: GAME_VERSION,
       mujoco_version: this.sim.mj.mj_versionString(),
-      scene_seed: null, // no scene randomization yet
+      scene_seed: scene?.seed ?? null,
+      scene, // positions, friction, mass and light of a randomized scene; null = standard layout
+      source,
       success: false,
       score: 0,
       metrics: {},
