@@ -176,8 +176,7 @@ its center lands in the safe spot. Speed varies per seed (9–16 cm/s). The plan
 whole route with the IK first, and unreachable layouts are skipped.
 
 `tools/generate_demos.mjs` writes episodes from planner runs in random scenes and drops
-failures. Over 100 random seeds each: cup on tray, medicine bottle and glasses case all
-succeed; mean scores are 99.8, 96.3 and 100 (300 episodes in 3.5 minutes on one core, about 40 KB each compressed). These are episodes with `source: "planner"`.
+failures. Over 100 random seeds per task, 299 of 300 episodes succeeded (one medicine bottle slipped out of the jaws at low friction and was dropped). Mean scores are 99.8 (cup on tray), 96.6 (medicine bottle) and 100 (glasses case); 300 episodes take about 3.5 minutes on one core and are about 40 KB each compressed. These are episodes with `source: "planner"`.
 
 ## Episode tags and events
 
