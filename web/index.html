@@ -20,6 +20,9 @@
     #spacemouse { margin-top: 6px; padding: 5px; border: 1px solid #c9d1d6; border-radius: 6px; background: #fff;
       cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
     #spacemouse:hover { border-color: var(--accent); }
+    #sound-toggle { margin-top: 6px; padding: 5px; border: 1px solid #c9d1d6; border-radius: 6px; background: #fff;
+      cursor: pointer; font: inherit; font-size: 13px; color: var(--ink); }
+    #sound-toggle:hover { border-color: var(--accent); }
     kbd { min-width: 64px; display: inline-block; text-align: center; padding: 1px 6px; border-radius: 5px;
       background: #fff; border: 1px solid #c9d1d6; font: 12px ui-monospace, Menlo, monospace; }
     #status { bottom: 16px; left: 16px; right: 16px; font: 12px ui-monospace, Menlo, monospace; }
@@ -129,6 +132,7 @@
     </div>
     <div id="help" class="panel">
       <div id="help-keys"></div>
+      <button id="sound-toggle" type="button" aria-pressed="false" title="Short sound effects for grip and task events"></button>
       <button id="spacemouse" hidden title="Chrome or Edge: pick your SpaceMouse in the browser's device list"></button>
     </div>
   </aside>

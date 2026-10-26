@@ -10,6 +10,7 @@ import { Recorder, contributorId } from './recorder.js';
 import { Planner } from './planner.js';
 import { sampleScene, resetScene, defaultScene, jitterScene } from './scene.js';
 import { Sharer } from './upload.js';
+import { Sound } from './sound.js';
 
 const LEVEL = 'models/kitchen.xml';
 const MAX_STEPS_PER_FRAME = 50; // don't spiral if a frame takes too long
@@ -25,6 +26,9 @@ async function main() {
 
   const recorder = new Recorder(sim, teleop, { level: LEVEL });
   const sharer = new Sharer(recorder);
+  const sound = new Sound();
+  // Sound cues follow what the game already records: grip changes and task events.
+  let gripWas = teleop.gripClosed, eventsHeard = 0;
 
   // Layouts and resets. N (messy kitchen) draws a new random layout; every reset (R, P, and
   // a task switch) starts from that layout and moves each object a few centimeters, so the
@@ -54,6 +58,7 @@ async function main() {
   const reset = ({ demo = false } = {}) => {
     if (recorder.current) share(recorder.finish({ success: false, reason: 'reset before finishing' }, task.events));
     autoDemo = null;
+    gripWas = teleop.gripClosed; eventsHeard = 0;
     scene = jitterFrom(layout || defaultScene());
     view.refreshFixed(); // the tray and the zones may have moved
     if (window.handover) window.handover.scene = scene;
@@ -82,7 +87,7 @@ async function main() {
   recorder.start(task);
   $('download').addEventListener('click', (e) => { recorder.download(); e.currentTarget.blur(); });
   $('welcome-download').addEventListener('click', () => recorder.download());
-  setupShare(sharer);
+  setupShare(sharer, sound);
   const keys = new Keyboard({ onToggleGrip: () => teleop.toggleGrip(), onReset: reset });
   window.addEventListener('keydown', (e) => {
     const i = Number(e.key) - 1;
@@ -95,6 +100,11 @@ async function main() {
   });
   const phone = new PhoneInput({ onGrip: (closed) => teleop.setGrip(closed), getGrip: () => teleop.gripClosed });
   phone.showBadge(document.body, { bottom: 64 });
+  const soundButton = $('sound-toggle');
+  const showSound = () => { soundButton.textContent = `Sound: ${sound.enabled ? 'on' : 'off'}`; };
+  sound.onChange = showSound;
+  showSound();
+  soundButton.addEventListener('click', (e) => { sound.toggle(); e.currentTarget.blur(); });
   const spacemouse = new SpaceMouseInput({ onToggleGrip: () => teleop.toggleGrip() });
   const smButton = $('spacemouse');
   spacemouse.onChange = () => {
@@ -201,6 +211,8 @@ async function main() {
     if (n === MAX_STEPS_PER_FRAME) simLag = 0;
 
     task.update();
+    if (teleop.gripClosed !== gripWas) { gripWas = teleop.gripClosed; sound.play(gripWas ? 'close' : 'open'); }
+    for (; eventsHeard < task.events.length; eventsHeard++) sound.play(task.events[eventsHeard][1]);
     if (task.state !== 'playing' && recorder.current) {
       share(recorder.finish(task.result, task.events));
       showEpisodes(recorder);
@@ -261,11 +273,11 @@ function showEpisodes(recorder) {
 // published under CC-BY-4.0, and how to get them removed. Only after the box is ticked does
 // the Sharer send episodes, each one as it finishes. "Not now" sends nothing; Download still
 // works. Turning sharing off needs no dialog. See docs/upload.md.
-function setupShare(sharer) {
+function setupShare(sharer, sound) {
   const button = $('send-episodes'), status = $('share-status'), toast = $('share-toast');
   const dialog = $('send-dialog'), consent = $('send-consent'), go = $('send-go');
   const welcome = $('welcome'), welcomeShare = $('welcome-share');
-  let toastTimer = 0;
+  let toastTimer = 0, lastMessage = '';
   function show() {
     button.hidden = false;
     button.disabled = !sharer.available;
@@ -279,6 +291,8 @@ function setupShare(sharer) {
     status.hidden = !sharer.message;
     status.textContent = sharer.message;
     status.classList.toggle('error', sharer.state === 'error');
+    if (sharer.state === 'idle' && sharer.message !== lastMessage && sharer.message.startsWith('Shared ')) sound.play('shared');
+    lastMessage = sharer.message;
     if (sharer.message && sharer.state !== 'off') {
       toast.hidden = false;
       toast.textContent = sharer.message;
