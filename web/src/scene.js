@@ -16,19 +16,19 @@ import { ROBOT } from './robot.js';
 const DEG = Math.PI / 180;
 const PROPS = ['cup', 'pill_bottle', 'glasses_case'];
 // Loose extras (YCB mug, fork, spoon) that are only there to make the table look lived in.
-// They are placed in table corners where no task needs to reach, if the level has them.
+// They are placed in table corners clear of the arm's swing, if the level has them.
 const CLUTTER = ['mug', 'fork', 'spoon'];
 // Table-frame boxes [x0, x1, y0, y1] (the table spans x -0.20..0.50, y -0.45..0.45).
 const CLUTTER_ZONES = [
   [0.40, 0.50, 0.00, 0.45], [0.40, 0.50, -0.45, -0.25], // right edge
   [-0.20, 0.00, 0.10, 0.45],                           // back left
   [-0.20, 0.00, -0.45, -0.20],                         // front left
+  [-0.20, -0.06, -0.20, 0.10],                         // behind the robot
 ];
 // Length and width of each extra (m), so none overhangs the table edge at any angle.
 const CLUTTER_SIZE = { mug: [0.117, 0.093], fork: [0.198, 0.027], spoon: [0.186, 0.083] };
 const TABLE = { x: [-0.20, 0.50], y: [-0.45, 0.45] };
 const EDGE_MARGIN = 0.04; // the origin of a mesh is not its middle
-const CLUTTER_MIN_R = 0.38; // m from the shoulder: farther than the arm grasps, so never in the way
 // Polar regions around the shoulder: radius in meters, angle in degrees from the +x axis.
 // A radius range of 0.30 to 0.355 keeps the grasp point inside the reachable ring; the glasses
 // case is gripped at its near end, 4 cm closer, so its center sits a little farther out.
@@ -102,6 +102,8 @@ export function sampleScene(seed) {
     // The tray and the safe zone are both drawn on the table; keep them apart.
     if (ok && Math.hypot(pos.tray[0] - pos.safe_zone[0], pos.tray[1] - pos.safe_zone[1]) < 0.17) ok = false;
     if (!ok) continue;
+    const clutter = sampleClutter(u, pos);
+    if (Object.keys(clutter).length < CLUTTER.length) continue; // no room for all the extras: another layout
     const caseAngle = Math.atan2(pos.glasses_case[1], pos.glasses_case[0] - ROBOT.panOrigin[0]);
     return {
       seed,
@@ -117,30 +119,56 @@ export function sampleScene(seed) {
       friction: { prop: round(u(...RANGE.friction.prop)), table: round(u(...RANGE.friction.table)), jaw: round(u(...RANGE.friction.jaw)) },
       mass: Object.fromEntries(PROPS.map((n) => [n, round(u(...RANGE.mass))])),
       light: round(u(...RANGE.light)),
-      clutter: sampleClutter(u, pos),
+      clutter,
     };
   }
   return { ...defaultScene(), seed };
+}
+
+// The arm turns anywhere between about -78 and +72 degrees while it carries things, so the whole
+// wedge from the shoulder out to 40 cm is where its links sweep. Distance from a table point to it.
+const SWEEP = { lo: -78 * DEG, hi: 72 * DEG, reach: 0.40 };
+function sweepDistance(p) {
+  const dx = p[0] - ROBOT.panOrigin[0], dy = p[1] - ROBOT.panOrigin[1], r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+  if (a >= SWEEP.lo && a <= SWEEP.hi) return Math.max(0, r - SWEEP.reach);
+  // Outside the wedge: the nearest point is on one of its two edge segments (or the apex).
+  let best = r;
+  for (const edge of [SWEEP.lo, SWEEP.hi]) {
+    const along = Math.min(SWEEP.reach, Math.max(0, dx * Math.cos(edge) + dy * Math.sin(edge)));
+    best = Math.min(best, Math.hypot(dx - along * Math.cos(edge), dy - along * Math.sin(edge)));
+  }
+  return best;
 }
 
 // Mug, fork and spoon in the table corners, apart from each other and from the task objects.
 function sampleClutter(u, task) {
   const placed = [], out = {};
   for (const name of CLUTTER) {
-    for (let tries = 0; tries < 600; tries++) {
-      const z = CLUTTER_ZONES[Math.floor(u(0, CLUTTER_ZONES.length))] ?? CLUTTER_ZONES[0];
-      const p = [u(z[0], z[1]), u(z[2], z[3])], yaw = u(-Math.PI, Math.PI);
-      const [len, wid] = CLUTTER_SIZE[name];
+    const [len, wid] = CLUTTER_SIZE[name], half = len / 2;
+    const fits = (p, yaw) => {
       const ex = (Math.abs(Math.cos(yaw)) * len + Math.abs(Math.sin(yaw)) * wid) / 2 + EDGE_MARGIN;
       const ey = (Math.abs(Math.sin(yaw)) * len + Math.abs(Math.cos(yaw)) * wid) / 2 + EDGE_MARGIN;
-      if (p[0] - ex < TABLE.x[0] || p[0] + ex > TABLE.x[1] || p[1] - ey < TABLE.y[0] || p[1] + ey > TABLE.y[1]) continue;
-      if (Math.hypot(p[0] - ROBOT.panOrigin[0], p[1] - ROBOT.panOrigin[1]) < CLUTTER_MIN_R) continue;
-      if (placed.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.12)) continue;
-      if (Object.values(task).some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.12)) continue;
-      placed.push(p);
-      out[name] = { x: round(p[0]), y: round(p[1]), yaw: round(yaw) };
-      break;
+      if (p[0] - ex < TABLE.x[0] || p[0] + ex > TABLE.x[1] || p[1] - ey < TABLE.y[0] || p[1] + ey > TABLE.y[1]) return false;
+      if (sweepDistance(p) < half + 0.045) return false; // clear of the arm's sweep, whatever the angle
+      // Keep apart by the two objects' half lengths, so even the 20 cm fork cannot touch anything.
+      if (placed.some(([q, h]) => Math.hypot(p[0] - q[0], p[1] - q[1]) < half + h + 0.03)) return false;
+      return !Object.values(task).some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < half + 0.10);
+    };
+    let spot = null;
+    for (let tries = 0; tries < 4000 && !spot; tries++) {
+      const z = CLUTTER_ZONES[Math.floor(u(0, CLUTTER_ZONES.length))] ?? CLUTTER_ZONES[0];
+      const p = [u(z[0], z[1]), u(z[2], z[3])], yaw = u(-Math.PI, Math.PI);
+      if (fits(p, yaw)) spot = { p, yaw };
     }
+    // Crowded table: search the whole table on a grid (lying along y or x) before giving up.
+    for (let x = TABLE.x[0]; x <= TABLE.x[1] && !spot; x += 0.02) {
+      for (let y = TABLE.y[0]; y <= TABLE.y[1] && !spot; y += 0.02) {
+        for (const yaw of [Math.PI / 2, 0]) if (!spot && fits([x, y], yaw)) spot = { p: [x, y], yaw };
+      }
+    }
+    if (!spot) continue;
+    placed.push([spot.p, half]);
+    out[name] = { x: round(spot.p[0]), y: round(spot.p[1]), yaw: round(spot.yaw) };
   }
   return out;
 }

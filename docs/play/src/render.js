@@ -163,6 +163,7 @@ export class Renderer {
   buildGeoms() {
     const { model } = this.sim;
     this.geoms = [];
+    this.fixedGeoms = []; // welded to the world: posed once, again by refreshFixed()
     const roomBodies = new Set([this.sim.id('BODY', 'kitchen_room')].filter((b) => b >= 0));
     const floor = this.sim.id('GEOM', 'floor');
     for (let g = 0; g < model.ngeom; g++) {
@@ -175,13 +176,24 @@ export class Renderer {
       mesh.matrixAutoUpdate = false;
       // Geoms welded to the world (walls, furniture) never move: pose them once.
       const fixed = model.body_weldid[model.geom_bodyid[g]] === 0;
-      if (fixed) setPose(mesh, this.sim.data.geom_xpos.subarray(3 * g, 3 * g + 3), this.sim.data.geom_xmat.subarray(9 * g, 9 * g + 9));
+      if (fixed) {
+        setPose(mesh, this.sim.data.geom_xpos.subarray(3 * g, 3 * g + 3), this.sim.data.geom_xmat.subarray(9 * g, 9 * g + 9));
+        this.fixedGeoms.push([g, mesh]);
+      }
       mesh.castShadow = model.geom_type[g] !== GEOM.PLANE && rgba[3] >= 1;
       mesh.receiveShadow = true;
       // The room (walls, cabinets, floor) is hidden in the orthographic helper views.
       if (roomBodies.has(model.body_rootid[model.geom_bodyid[g]]) || g === floor) mesh.layers.set(ROOM_LAYER);
       this.scene.add(mesh);
       if (!fixed) this.geoms.push([g, mesh]);
+    }
+  }
+
+  // Pose the fixed geoms again, after a scene moved the tray or the table zones.
+  refreshFixed() {
+    const { data } = this.sim;
+    for (const [g, mesh] of this.fixedGeoms) {
+      setPose(mesh, data.geom_xpos.subarray(3 * g, 3 * g + 3), data.geom_xmat.subarray(9 * g, 9 * g + 9));
     }
   }
 

@@ -146,6 +146,14 @@ the grasp point must stay at 29.5 cm or more, so:
 | Safe spot | 30–34 cm | −72° to −40° | |
 | Hand zone | 27–33 cm | 25° to 65° | height 10–14 cm |
 
+The YCB mug, fork and spoon are clutter. They go to the free parts of the table: the right
+edge, behind the robot, and the back-left and front-left corners. Each one stays out of the
+wedge the arm sweeps (from the shoulder, −78° to +72°, out to 40 cm) by half its length plus
+4.5 cm, stays at least half its length plus 10 cm from every task object, and is kept far
+enough from the table edge that it cannot overhang it at any angle (the fork is 20 cm long).
+If all three do not fit, the scene is sampled again. They are scored like any loose object:
+knock one over and the episode fails.
+
 Objects keep apart (no overlaps, tray and safe spot 17 cm apart). Also randomized: friction
 of the props 0.28–0.55, table 0.30–0.50 and jaws 0.30–0.60 (the standard values are 0.35, 0.4
 and 0.4), prop mass ×0.8–1.3, and light brightness ×0.6–1.3. Object size is not randomized

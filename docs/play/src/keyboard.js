@@ -15,6 +15,8 @@ export const KEY_HELP = [
   ['V', '4 views (front, top, 3D, side) / one view'],
   ['M', 'show / hide the menu'],
   ['R', 'reset level'],
+  ['N', 'messy kitchen (random layout) on / off'],
+  ['P', 'watch an automatic demo'],
   ['1 2 3', 'switch task'],
   ['Mouse', 'orbit / zoom camera'],
 ];
