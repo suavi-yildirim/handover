@@ -5,6 +5,10 @@
   <!-- The room around the table (walls, kitchen units, window, chair, lights). Visual
        only apart from the floor, and no free bodies, so it does not change qpos. -->
   <include file="kitchen/room.xml"/>
+  <!-- Standard kitchen objects (mug, fork, spoon) from the YCB set, CC BY 4.0.
+       Included before the level bodies, so their free joints come first in qpos. Keep the
+       keyframe in this order: YCB objects, then cup, pill bottle, glasses case. -->
+  <include file="kitchen/objects_ycb.xml"/>
 
   <compiler meshdir="so101/assets"/>
   <option timestep="0.002"/>
@@ -126,6 +130,9 @@
          the shoulder, where a level gripper reaches them comfortably. -->
     <key name="ready"
          qpos="-0.09 -1.34 1.52 -0.18 -1.5708 0.9
+               0.42 0.30 0 1 0 0 0
+               0.46 0.00 0 0.7071068 0 0 0.7071068
+               0.05 -0.12 0 1 0 0 0
                0.33 0.11 0 1 0 0 0
                0.34 -0.03 0 1 0 0 0
                0.22 0.30 0 0.870922 0 0 0.491421"

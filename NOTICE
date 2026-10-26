@@ -13,3 +13,7 @@ It includes third-party software, each under its own license (full texts alongsi
   web/vendor/three/LICENSE
 - qrcode-generator 1.4.4, MIT License
   web/vendor/qrcode/LICENSE
+- YCB Object and Model Set (mug, fork and spoon, converted to collision
+  hulls by tools/object_hulls.py), Creative Commons Attribution 4.0 International
+  (CC BY 4.0), Yale-CMU-Berkeley, https://www.ycbbenchmarks.com/
+  Cite: Calli et al., "The YCB Object and Model Set", 2015.
