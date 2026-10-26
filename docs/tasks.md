@@ -163,6 +163,18 @@ The scene is stored in each episode as `scene` (positions, yaw, friction, mass, 
 `scene_seed`, since none of it except the object poses is part of `qpos`; an offline
 renderer applies it before replaying the states. `scene: null` means the standard layout.
 
+## Jitter on every reset
+
+Each reset (R, P, switching task) moves the objects a little from the current layout
+(`jitterScene` in `web/src/scene.js`; game 0.5.1): a disc of up to 1.2 cm around each object's layout
+spot, for the cup, bottle, glasses case, tray, safe spot, hand zone and the extras. A move is
+kept only if the layout still holds: props stay in the 29.5–36 cm ring from the shoulder and
+keep their clearances, the extras stay on the table and out of the arm's sweep, and the arm can
+still do the task (the planner's reach check). Yaw does not change, so the cup handle's rules
+still hold. The scene in each episode records `layout_seed` (the layout), `jitter_seed` (the
+move), and the object positions after the move, so the reset can be rebuilt exactly with
+`jitterScene(layout, jitter_seed)`.
+
 ## Automatic demos
 
 `web/src/planner.js` plays a task the way the scripted tests do (hover over the object, lower

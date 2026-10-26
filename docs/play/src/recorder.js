@@ -5,7 +5,7 @@
 import { ROBOT } from './robot.js';
 
 export const FORMAT_VERSION = 1;
-export const GAME_VERSION = '0.5.0';
+export const GAME_VERSION = '0.5.1';
 export const DATA_LICENSE = 'CC-BY-4.0'; // recorded play data; the code is Apache-2.0
 export const FPS = 30;
 

@@ -173,6 +173,93 @@ function sampleClutter(u, task) {
   return out;
 }
 
+// Small moves on every reset. A layout (from sampleScene, or the hand-placed one) is the
+// starting point; jitterScene moves each object a few centimeters from it, so no two episodes
+// have exactly the same table, while the layout stays the same family. Only positions move
+// (yaw stays: the cup's handle angle has rules of its own). Each object's move is checked with
+// the same clearances as the layout, and kept only if the layout still holds.
+export const JITTER = 0.012; // m: most objects move less than this on a reset
+const REACH_MIN = 0.295, REACH_MAX = 0.36; // m from the shoulder, the level gripper's grasp ring
+
+function layoutOk(s, before) {
+  const props = PROPS.map((n) => [n, [s.objects[n].x, s.objects[n].y]]);
+  for (const [n, p] of props) {
+    const r = Math.hypot(p[0] - ROBOT.panOrigin[0], p[1] - ROBOT.panOrigin[1]);
+    if (r < REACH_MIN || r > REACH_MAX) return false;
+  }
+  const rects = [['tray', [s.tray.x, s.tray.y]], ['safe_zone', [s.safe_zone.x, s.safe_zone.y]]];
+  for (let i = 0; i < props.length; i++) {
+    const [n, p] = props[i];
+    for (let j = i + 1; j < props.length; j++) {
+      if (Math.hypot(p[0] - props[j][1][0], p[1] - props[j][1][1]) < CLEAR[n] + CLEAR[props[j][0]]) return false;
+    }
+    for (const [rn, c] of rects) if (rectDistance(p, c, RECT[rn]) < CLEAR[n]) return false;
+  }
+  if (Math.hypot(s.tray.x - s.safe_zone.x, s.tray.y - s.safe_zone.y) < 0.17) return false;
+  // The hand zone stays clear of the objects, or no closer than it started (sampled layouts
+  // do not enforce this rule, so a layout may start closer).
+  const hand = [s.hand_zone.x, s.hand_zone.y];
+  for (const n of PROPS) {
+    const d = Math.hypot(s.objects[n].x - hand[0], s.objects[n].y - hand[1]);
+    const db = before ? Math.hypot(before.objects[n].x - before.hand_zone.x, before.objects[n].y - before.hand_zone.y) : Infinity;
+    if (d < 0.09 && d < db) return false;
+  }
+  // Extras: on the table, apart from each other and from the task objects, and not closer to
+  // the arm's sweep than they were (the hand-placed fork already sits inside it).
+  const extras = Object.entries(s.clutter || {});
+  const boxes = [];
+  for (const [n, o] of extras) {
+    const [len, wid] = CLUTTER_SIZE[n], half = len / 2, yaw = o.yaw;
+    const ex = (Math.abs(Math.cos(yaw)) * len + Math.abs(Math.sin(yaw)) * wid) / 2 + EDGE_MARGIN;
+    const ey = (Math.abs(Math.sin(yaw)) * len + Math.abs(Math.cos(yaw)) * wid) / 2 + EDGE_MARGIN;
+    // Past the table margin counts as overhang; the hand-placed fork already overhangs a little,
+    // so an extra may keep its base overhang but not go further over the edge.
+    const over = (q, qx, qy) => Math.max(0, ex + qx - TABLE.x[1], TABLE.x[0] - (qx - ex), ey + qy - TABLE.y[1], TABLE.y[0] - (qy - ey));
+    const b = before?.clutter?.[n];
+    if (over(o, o.x, o.y) > (b ? over(b, b.x, b.y) : 0) + 1e-9) return false;
+    const p = [o.x, o.y];
+    const sweep = sweepDistance(p), was = b ? sweepDistance([b.x, b.y]) : Infinity;
+    if (sweep < half + 0.045 && sweep < was) return false;
+    for (const [q, h] of boxes) if (Math.hypot(p[0] - q[0], p[1] - q[1]) < half + h + 0.03) return false;
+    // Clear of the task objects: the hand-placed fork is closer to the bottle than this rule
+    // allows, so, as with the table margin, an extra may not come closer than its base spot.
+    for (const n of PROPS) {
+      const t = [s.objects[n].x, s.objects[n].y];
+      const d = Math.hypot(p[0] - t[0], p[1] - t[1]);
+      const db = b && before ? Math.hypot(b.x - before.objects[n].x, b.y - before.objects[n].y) : Infinity;
+      if (d < half + 0.10 && d < db) return false;
+    }
+    boxes.push([p, half]);
+  }
+  return true;
+}
+
+// The same scene with each object moved by up to `amount` meters (uniform in a disc), from a
+// seed. The result keeps the layout's seed (layout_seed) and records the jitter seed, so it can
+// be rebuilt exactly: jitterScene(layout, jitter_seed).
+export function jitterScene(base, seed, amount = JITTER) {
+  const rnd = mulberry32(seed + 104729);
+  const s = structuredClone(base);
+  s.layout_seed = base.seed ?? null;
+  s.seed = base.seed ?? null;
+  s.jitter_seed = seed;
+  const points = [
+    s.objects.cup, s.objects.pill_bottle, s.objects.glasses_case, s.tray, s.safe_zone, s.hand_zone,
+    ...Object.values(s.clutter || {}),
+  ];
+  for (const o of points) {
+    const x0 = o.x, y0 = o.y;
+    for (let tries = 0; tries < 20; tries++) {
+      const r = amount * Math.sqrt(rnd()), th = 2 * Math.PI * rnd();
+      o.x = round(x0 + r * Math.cos(th));
+      o.y = round(y0 + r * Math.sin(th));
+      if (layoutOk(s, base)) break;
+      o.x = x0; o.y = y0;
+    }
+  }
+  return s;
+}
+
 // The hand-placed layout from kitchen.xml, expressed as a scene (scale factors all 1).
 export function defaultScene() {
   return {

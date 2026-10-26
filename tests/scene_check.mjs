@@ -10,7 +10,7 @@ const { Teleop } = await import(path.join(WEB, 'src/teleop.js'));
 const { TASKS } = await import(path.join(WEB, 'src/task.js'));
 const { Recorder } = await import(path.join(WEB, 'src/recorder.js'));
 const { Planner } = await import(path.join(WEB, 'src/planner.js'));
-const { sampleScene, defaultScene, applyScene, resetScene } = await import(path.join(WEB, 'src/scene.js'));
+const { sampleScene, defaultScene, applyScene, resetScene, jitterScene, JITTER } = await import(path.join(WEB, 'src/scene.js'));
 
 const sim = await loadSim();
 const teleop = new Teleop(sim);
@@ -35,6 +35,16 @@ resetScene(sim, sampleScene(4)); resetScene(sim, scene);
 check('applying scenes does not accumulate', Math.abs(mass('cup') - m1) < 1e-12);
 resetScene(sim, null);
 check('standard scene restores mass', Math.abs(mass('cup') - 0.073) < 1e-9);
+
+// Jitter on reset: small, repeatable, and it records the layout it came from.
+const layout = sampleScene(11);
+const j1 = jitterScene(layout, 5), j2 = jitterScene(layout, 5);
+check('same jitter seed, same move', JSON.stringify(j1) === JSON.stringify(j2));
+check('jitter moves the scene', JSON.stringify(j1.objects) !== JSON.stringify(layout.objects));
+const moves = ['cup', 'pill_bottle', 'glasses_case'].map((n) => Math.hypot(j1.objects[n].x - layout.objects[n].x, j1.objects[n].y - layout.objects[n].y));
+check(`jitter stays within ${JITTER * 100} cm (largest ${(Math.max(...moves) * 100).toFixed(2)} cm)`, Math.max(...moves) <= JITTER + 1e-3);
+check('jitter records layout and jitter seeds', j1.layout_seed === 11 && j1.jitter_seed === 5 && j1.seed === 11);
+check('jitter does not change the layout it came from', JSON.stringify(layout) === JSON.stringify(sampleScene(11)));
 
 // Planner in random scenes: every task, a few seeds.
 const FRAME = 1 / 60;

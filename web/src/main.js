@@ -8,7 +8,7 @@ import { SpaceMouseInput } from './spacemouse.js';
 import { TASKS } from './task.js';
 import { Recorder, contributorId } from './recorder.js';
 import { Planner } from './planner.js';
-import { sampleScene, resetScene } from './scene.js';
+import { sampleScene, resetScene, defaultScene, jitterScene } from './scene.js';
 import { Sharer } from './upload.js';
 
 const LEVEL = 'models/kitchen.xml';
@@ -26,26 +26,38 @@ async function main() {
   const recorder = new Recorder(sim, teleop, { level: LEVEL });
   const sharer = new Sharer(recorder);
 
-  // "Messy kitchen": every reset puts the objects somewhere else (within reach), with different
-  // friction, weight and light. The scene is saved with the episode.
-  let messy = load('handover.messy') === '1', autoDemo = null, scene = null;
+  // Layouts and resets. N (messy kitchen) draws a new random layout; every reset (R, P, and
+  // a task switch) starts from that layout and moves each object a few centimeters, so the
+  // episodes differ even on the same layout. Friction, weight and light are drawn per layout.
+  let messy = load('handover.messy') === '1', autoDemo = null, scene = null, layout = null;
   const share = (ep) => { if (ep && ep.source !== 'planner') sharer.add(ep); };
+  // A random layout the arm can do this task in (almost all can); null for the standard layout.
+  const drawLayout = () => {
+    layout = null;
+    if (!messy) return;
+    for (let tries = 0; tries < 10 && !layout; tries++) {
+      const candidate = sampleScene(Math.floor(Math.random() * 2 ** 31));
+      resetScene(sim, candidate); teleop.reset(); task.reset();
+      if (new Planner(sim, teleop, task).reachable()) layout = candidate;
+    }
+  };
+  // Jitter from the layout; keep the jitter only if the arm can still do the task.
+  const jitterFrom = (base) => {
+    for (let tries = 0; tries < 5; tries++) {
+      const candidate = jitterScene(base, Math.floor(Math.random() * 2 ** 31));
+      resetScene(sim, candidate); teleop.reset(); task.reset();
+      if (new Planner(sim, teleop, task).reachable()) return candidate;
+    }
+    resetScene(sim, base); teleop.reset(); task.reset();
+    return base;
+  };
   const reset = ({ demo = false } = {}) => {
     if (recorder.current) share(recorder.finish({ success: false, reason: 'reset before finishing' }, task.events));
     autoDemo = null;
-    scene = null;
-    if (messy) {
-      // Try layouts until the arm can do this task in them (almost all can).
-      for (let tries = 0; tries < 10 && !scene; tries++) {
-        const candidate = sampleScene(Math.floor(Math.random() * 2 ** 31));
-        resetScene(sim, candidate); teleop.reset(); task.reset();
-        if (new Planner(sim, teleop, task).reachable()) scene = candidate;
-      }
-    }
-    resetScene(sim, scene); teleop.reset(); task.reset();
+    scene = jitterFrom(layout || defaultScene());
     view.refreshFixed(); // the tray and the zones may have moved
     if (window.handover) window.handover.scene = scene;
-    if (demo) autoDemo = new Planner(sim, teleop, task, { seed: scene?.seed ?? 0 });
+    if (demo) autoDemo = new Planner(sim, teleop, task, { seed: scene.jitter_seed });
     recorder.start(task, { scene, source: demo ? 'planner' : 'human' });
     if (demo) recorder.noteInput('planner');
     $('result').hidden = true;
@@ -56,6 +68,7 @@ async function main() {
     messy = on;
     save('handover.messy', on ? '1' : '0');
     $('messy').checked = on;
+    drawLayout();
     reset();
   };
   const selectTask = (i) => {
@@ -96,7 +109,8 @@ async function main() {
   $('messy').checked = messy;
   $('messy').addEventListener('change', (e) => { setMessy(e.target.checked); e.target.blur(); });
   $('auto-demo').addEventListener('click', (e) => { reset({ demo: true }); e.currentTarget.blur(); });
-  if (messy) reset();
+  drawLayout();
+  reset();
   $('task-select').innerHTML = tasks.map((t, i) => `<option value="${i}">${i + 1}. ${t.title}</option>`).join('');
   $('task-select').value = String(tasks.indexOf(task));
   $('task-select').addEventListener('change', (e) => { selectTask(Number(e.target.value)); e.target.blur(); });

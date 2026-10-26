@@ -167,7 +167,8 @@ and the Handover contributors". Every episode carries `"license": "CC-BY-4.0"`.
 
 Press **N** (or tick *Messy kitchen* in the menu) and every try puts the objects somewhere
 new, always within the arm's reach, with different friction, weight and light. The mug, fork and spoon move to the table corners. Press **P**
-to watch the automatic demo play the task in the current layout; touch any control and it
+to watch the automatic demo play the task in the current layout. Every reset (R) moves the
+objects a centimeter or so from the layout, so no two episodes have the same table; touch any control and it
 hands over to you. The layout is saved in the episode (`scene`, `scene_seed`) and
 `source` says who drove: `human`, `planner`, or `planner+human`. Episodes driven only by
 the planner are not offered for sharing.

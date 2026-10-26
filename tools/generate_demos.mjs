@@ -16,7 +16,7 @@ const { Teleop } = await import(path.join(WEB, 'src/teleop.js'));
 const { TASKS } = await import(path.join(WEB, 'src/task.js'));
 const { Recorder } = await import(path.join(WEB, 'src/recorder.js'));
 const { Planner } = await import(path.join(WEB, 'src/planner.js'));
-const { sampleScene, resetScene } = await import(path.join(WEB, 'src/scene.js'));
+const { sampleScene, resetScene, jitterScene } = await import(path.join(WEB, 'src/scene.js'));
 
 const sim = await loadSim();
 const teleop = new Teleop(sim);
@@ -33,7 +33,8 @@ for (let i = 0; i < count; i++) {
   for (const id of taskIds) {
     const seed = seed0 + i, task = tasks[id], stat = (stats[id] ??= { tried: 0, unreachable: 0, failed: 0, kept: 0, scores: [] });
     stat.tried++;
-    const scene = sampleScene(seed);
+    // Layout from the seed, then a small move as on every reset in the game.
+    const scene = jitterScene(sampleScene(seed), seed * 7919 + 1);
     resetScene(sim, scene);
     teleop.reset(); task.reset();
     const planner = new Planner(sim, teleop, task, { seed });
