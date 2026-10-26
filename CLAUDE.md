@@ -120,6 +120,7 @@ Each entry notes what Handover should learn or borrow from it.
 | DREAM | 2026: generates VLA fine-tuning data from a captured workspace + language instruction, without human demos | Automatic data generation to complement player data | https://arxiv.org/abs/2608.29078 |
 | VLM2VLA | Fine-tuning VLMs into VLAs with LoRA while avoiding catastrophic forgetting | Cheap fine-tuning recipe | https://arxiv.org/abs/2509.22195 |
 | CRAFT | Force-aware curriculum fine-tuning for contact-rich manipulation | Gentleness/force metrics for care tasks | https://arxiv.org/abs/2602.12532 |
+| AW-0 (Agentic World Action Models) | UC Berkeley, NVIDIA, UPenn, 2026: coding agents label robot and human demos with Python programs over a primitive API (grasp, servo_ee_delta, release), a coordinator (Claude Code) distills a frozen library of 50 skills, and one model predicts code, future video and actions; pretrained on ~2,000 h bimanual YAM teleop + ~1,000 h egocentric human video | LLM subtask annotation of our episodes (we already log intent, events, tags), a skill library as scripted primitives for the kitchen tasks, and hybrid execution with whitelist/vacuity checks as a safety pattern. Not directly usable: bimanual arms and far more data than we have | https://arxiv.org/abs/2610.30136 (project: https://agentic-wam.github.io, code: https://github.com/ZhuoyangLiu2005/agentic-wam) |
 
 ### 8.4 Simulation, benchmarks and tools
 
