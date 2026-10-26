@@ -1,0 +1,134 @@
+<mujoco model="handover_kitchen_viperx">
+  <!-- Handover level 1: kitchen. Two ViperX 300 arms sit side by side at the robot edge (see viperx/viperx_bimanual.xml).
+       Units: meters, kilograms, radians. World z is up; the robot faces +x. -->
+  <include file="viperx/viperx_bimanual.xml"/>
+  <!-- The room around the table (walls, kitchen units, window, chair, lights). Visual
+       only apart from the floor, and no free bodies, so it does not change qpos. -->
+  <include file="kitchen/room.xml"/>
+
+  <compiler meshdir="viperx/assets"/>
+  <option timestep="0.002"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <global azimuth="200" elevation="-30" offwidth="1280" offheight="720"/>
+  </visual>
+
+  <asset>
+    <material name="wood" rgba="0.62 0.45 0.30 1"/>
+    <material name="cup" rgba="0.20 0.55 0.85 1"/>
+    <material name="tray" rgba="0.30 0.65 0.45 1"/>
+    <material name="pills" rgba="0.95 0.55 0.15 1"/>
+    <material name="pills_cap" rgba="0.95 0.95 0.95 1"/>
+    <material name="hand_zone" rgba="0.95 0.35 0.45 0.25"/>
+    <material name="glasses_case" rgba="0.18 0.18 0.22 0.3"/>
+    <material name="edge_zone" rgba="0.95 0.25 0.15 0.4"/>
+    <material name="safe_zone" rgba="0.2 0.8 0.4 0.4"/>
+    <!-- Convex meshes for the props (MuJoCo takes the convex hull of each). Vertices are
+         inline so there are no extra files; the shapes are set in the body frames below. -->
+    <mesh name="glasses_case_mesh" vertex="-0.0660 -0.0200 -0.0180 -0.0700 -0.0160 -0.0180 -0.0700 -0.0200 -0.0140 -0.0660 -0.0200 0.0180 -0.0700 -0.0160 0.0180 -0.0700 -0.0200 0.0140 -0.0660 0.0200 -0.0180 -0.0700 0.0160 -0.0180 -0.0700 0.0200 -0.0140 -0.0660 0.0200 0.0180 -0.0700 0.0160 0.0180 -0.0700 0.0200 0.0140 0.0660 -0.0200 -0.0180 0.0700 -0.0160 -0.0180 0.0700 -0.0200 -0.0140 0.0660 -0.0200 0.0180 0.0700 -0.0160 0.0180 0.0700 -0.0200 0.0140 0.0660 0.0200 -0.0180 0.0700 0.0160 -0.0180 0.0700 0.0200 -0.0140 0.0660 0.0200 0.0180 0.0700 0.0160 0.0180 0.0700 0.0200 0.0140"/>
+    <mesh name="cup_mesh" vertex="0.0165 0.0000 0.0000 0.0152 0.0063 0.0000 0.0117 0.0117 0.0000 0.0063 0.0152 0.0000 0.0000 0.0165 0.0000 -0.0063 0.0152 0.0000 -0.0117 0.0117 0.0000 -0.0152 0.0063 0.0000 -0.0165 0.0000 0.0000 -0.0152 -0.0063 0.0000 -0.0117 -0.0117 0.0000 -0.0063 -0.0152 0.0000 -0.0000 -0.0165 0.0000 0.0063 -0.0152 0.0000 0.0117 -0.0117 0.0000 0.0152 -0.0063 0.0000 0.0200 0.0000 0.0700 0.0185 0.0077 0.0700 0.0141 0.0141 0.0700 0.0077 0.0185 0.0700 0.0000 0.0200 0.0700 -0.0077 0.0185 0.0700 -0.0141 0.0141 0.0700 -0.0185 0.0077 0.0700 -0.0200 0.0000 0.0700 -0.0185 -0.0077 0.0700 -0.0141 -0.0141 0.0700 -0.0077 -0.0185 0.0700 -0.0000 -0.0200 0.0700 0.0077 -0.0185 0.0700 0.0141 -0.0141 0.0700 0.0185 -0.0077 0.0700"/>
+    <mesh name="pill_bottle_mesh" vertex="0.0130 0.0000 0.0000 0.0120 0.0050 0.0000 0.0092 0.0092 0.0000 0.0050 0.0120 0.0000 0.0000 0.0130 0.0000 -0.0050 0.0120 0.0000 -0.0092 0.0092 0.0000 -0.0120 0.0050 0.0000 -0.0130 0.0000 0.0000 -0.0120 -0.0050 0.0000 -0.0092 -0.0092 0.0000 -0.0050 -0.0120 0.0000 -0.0000 -0.0130 0.0000 0.0050 -0.0120 0.0000 0.0092 -0.0092 0.0000 0.0120 -0.0050 0.0000 0.0150 0.0000 0.0050 0.0139 0.0057 0.0050 0.0106 0.0106 0.0050 0.0057 0.0139 0.0050 0.0000 0.0150 0.0050 -0.0057 0.0139 0.0050 -0.0106 0.0106 0.0050 -0.0139 0.0057 0.0050 -0.0150 0.0000 0.0050 -0.0139 -0.0057 0.0050 -0.0106 -0.0106 0.0050 -0.0057 -0.0139 0.0050 -0.0000 -0.0150 0.0050 0.0057 -0.0139 0.0050 0.0106 -0.0106 0.0050 0.0139 -0.0057 0.0050 0.0150 0.0000 0.0550 0.0139 0.0057 0.0550 0.0106 0.0106 0.0550 0.0057 0.0139 0.0550 0.0000 0.0150 0.0550 -0.0057 0.0139 0.0550 -0.0106 0.0106 0.0550 -0.0139 0.0057 0.0550 -0.0150 0.0000 0.0550 -0.0139 -0.0057 0.0550 -0.0106 -0.0106 0.0550 -0.0057 -0.0139 0.0550 -0.0000 -0.0150 0.0550 0.0057 -0.0139 0.0550 0.0106 -0.0106 0.0550 0.0139 -0.0057 0.0550 0.0135 0.0000 0.0600 0.0125 0.0052 0.0600 0.0095 0.0095 0.0600 0.0052 0.0125 0.0600 0.0000 0.0135 0.0600 -0.0052 0.0125 0.0600 -0.0095 0.0095 0.0600 -0.0125 0.0052 0.0600 -0.0135 0.0000 0.0600 -0.0125 -0.0052 0.0600 -0.0095 -0.0095 0.0600 -0.0052 -0.0125 0.0600 -0.0000 -0.0135 0.0600 0.0052 -0.0125 0.0600 0.0095 -0.0095 0.0600 0.0125 -0.0052 0.0600"/>
+  </asset>
+
+  <default>
+    <default class="furniture">
+      <!-- Lacquered wood / melamine: Coulomb friction about 0.4 against ceramic or plastic. -->
+      <geom contype="1" conaffinity="1" condim="3" friction="0.4 0.005 0.0001"/>
+    </default>
+    <default class="prop">
+      <!-- Graspable objects (glazed ceramic, PP plastic): sliding friction 0.35. MuJoCo uses the
+           larger of the two geoms, so props slide on the table at 0.4. The SO-101 jaws have
+           contact priority, so grasps use the jaws' own friction. Torsional friction is about
+           mu * contact radius; rolling resistance of hard objects is small. -->
+      <geom contype="1" conaffinity="1" condim="4" friction="0.35 0.004 0.0001" solref="0.01 1"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <!-- Kitchen table. Top surface is at z = 0 so the robot base and props sit at z = 0. -->
+    <body name="table" pos="0.15 0 0">
+      <geom name="table_top" type="box" size="0.35 0.45 0.02" pos="0 0 -0.02" material="wood" class="furniture"/>
+      <geom type="box" size="0.02 0.02 0.355" pos="0.31 0.41 -0.395" material="wood" class="furniture"/>
+      <geom type="box" size="0.02 0.02 0.355" pos="0.31 -0.41 -0.395" material="wood" class="furniture"/>
+      <geom type="box" size="0.02 0.02 0.355" pos="-0.31 0.41 -0.395" material="wood" class="furniture"/>
+      <geom type="box" size="0.02 0.02 0.355" pos="-0.31 -0.41 -0.395" material="wood" class="furniture"/>
+    </body>
+
+    <!-- Tray: fixed to the table. Its inner floor is the "cup on tray" target region. -->
+    <body name="tray" pos="0.32 -0.17 0">
+      <geom name="tray_floor" type="box" size="0.07 0.055 0.003" pos="0 0 0.003" material="tray" class="furniture"/>
+      <geom type="box" size="0.07 0.003 0.008" pos="0 0.055 0.008" material="tray" class="furniture"/>
+      <geom type="box" size="0.07 0.003 0.008" pos="0 -0.055 0.008" material="tray" class="furniture"/>
+      <geom type="box" size="0.003 0.055 0.008" pos="0.07 0 0.008" material="tray" class="furniture"/>
+      <geom type="box" size="0.003 0.055 0.008" pos="-0.07 0 0.008" material="tray" class="furniture"/>
+      <site name="tray_center" pos="0 0 0.006" size="0.005" rgba="0 0 0 0"/>
+    </body>
+
+    <!-- Cup: a small (espresso-size) porcelain cup the SO-101 gripper can close around.
+         4 cm across, 7 cm tall, 3 mm walls, 5 mm base, porcelain 2300 kg/m^3, plus a 6 g
+         handle: 73 g. The inertial is that of the hollow cup (centre of mass 3.1 cm up),
+         not of a solid cylinder; see tools/kitchen_inertia.py. -->
+    <body name="cup" pos="0.33 0.11 0">
+      <freejoint name="cup_free"/>
+      <inertial pos="0 0.002 0.031" mass="0.073" diaginertia="4.6e-5 4.3e-5 2.4e-5"/>
+      <geom name="cup_body" type="mesh" mesh="cup_mesh" material="cup" class="prop"/>
+      <!-- Handle: a loop of four short capsules (each convex), on the +y side. -->
+      <geom name="cup_handle_1" type="capsule" fromto="0 0.019 0.014  0 0.030 0.020" size="0.0032" material="cup" class="prop"/>
+      <geom name="cup_handle_2" type="capsule" fromto="0 0.030 0.020  0 0.036 0.035" size="0.0032" material="cup" class="prop"/>
+      <geom name="cup_handle_3" type="capsule" fromto="0 0.036 0.035  0 0.030 0.050" size="0.0032" material="cup" class="prop"/>
+      <geom name="cup_handle_4" type="capsule" fromto="0 0.030 0.050  0 0.019 0.056" size="0.0032" material="cup" class="prop"/>
+      <site name="cup_top" pos="0 0 0.07" size="0.004" rgba="0 0 0 0"/>
+    </body>
+
+    <!-- Medicine bottle (for the "bring medication" task): a pharmacy pill vial, 3 cm across
+         with rounded shoulders and a slight taper (a convex mesh),
+         PP plastic with 1.2 mm walls (7 g), 10 g of tablets at the bottom, 3 g cap: 20 g,
+         centre of mass 2.5 cm up. -->
+    <body name="pill_bottle" pos="0.34 -0.03 0">
+      <freejoint name="pill_bottle_free"/>
+      <inertial pos="0 0 0.025" mass="0.020" diaginertia="1.1e-5 1.1e-5 2.3e-6"/>
+      <geom name="pill_bottle_body" type="mesh" mesh="pill_bottle_mesh" material="pills" class="prop"/>
+      <geom name="pill_bottle_cap" type="cylinder" size="0.016 0.006" pos="0 0 0.066" material="pills_cap" class="prop"/>
+    </body>
+
+    <!-- Glasses case (for the "tidy a fall hazard" task): a hard-shell case, 14 x 4 x 3.6 cm,
+         ABS shell 45 g with 4 mm rounded edges (a convex mesh), left near the table edge on the person's side, where an elbow or a
+         sleeve could knock it to the floor. Its long side points at the robot so the jaws
+         close across its 4 cm width. -->
+    <body name="glasses_case" pos="0.22 0.30 0" quat="0.870922 0 0 0.491421">
+      <freejoint name="glasses_case_free"/>
+      <inertial pos="0 0 0.018" mass="0.045" diaginertia="1.1e-5 7.8e-5 7.9e-5"/>
+      <geom name="glasses_case_body" type="mesh" mesh="glasses_case_mesh" pos="0 0 0.018" material="glasses_case" class="prop"/>
+    </body>
+
+    <!-- Table zones for the fall-hazard task, drawn on the table top. Visual only. -->
+    <geom name="edge_zone" type="box" size="0.35 0.1 0.0005" pos="0.15 0.35 0.0005" material="edge_zone"
+          contype="0" conaffinity="0" group="1"/>
+    <geom name="safe_zone" type="box" size="0.06 0.05 0.0005" pos="0.12 -0.31 0.0005" material="safe_zone"
+          contype="0" conaffinity="0" group="1"/>
+
+    <!-- Where the (future) person's hand waits for a handover. Visual only. -->
+    <site name="hand_zone" type="sphere" size="0.04" pos="0.12 0.28 0.12" material="hand_zone"/>
+
+    <!-- Dataset scene camera (observation.images.front): from the robot's right, looking
+         down at the table so the cup, tray, bottle and hand zone are all in view.
+         The wrist camera is wrist_cam in so101.xml. -->
+    <camera name="front" pos="0.12 -0.55 0.5" xyaxes="0.997 -0.083 0 0.053 0.637 0.769" fovy="60"/>
+
+    <!-- Default play camera: behind and above the robot, looking along +x. -->
+    <camera name="play" pos="-0.35 0 0.38" xyaxes="0 -1 0 0.6 0 0.8" fovy="50"/>
+  </worldbody>
+
+  <keyframe>
+    <!-- Ready pose: gripper level and open, wrist camera on top (roll -90 deg), grasp point
+         about 15 cm above the table in front of the robot. Objects sit about 30 cm out from
+         the shoulder, where a level gripper reaches them comfortably. -->
+    <key name="neutral"
+         qpos="0 -0.96 1.16 0 -0.3 0 0.0084 0.0084 0 -0.96 1.16 0 -0.3 0 0.0084 0.0084
+               0.33 0.11 0 1 0 0 0
+               0.34 -0.03 0 1 0 0 0
+               0.22 0.30 0 0.870922 0 0 0.491421"
+         ctrl="0 -0.96 1.16 0 -0.3 0 0.0084 0 -0.96 1.16 0 -0.3 0 0.0084"/>
+  </keyframe>
+</mujoco>
